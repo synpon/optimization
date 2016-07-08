@@ -1,0 +1,6 @@
+*.pyc
+*.txt
+*.log
+*.pkl
+*.csv
+MNIST_data/*
