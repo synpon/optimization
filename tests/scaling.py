@@ -12,6 +12,7 @@ p = 10
 x_ = tf.placeholder(tf.float32, [2,4])
 scale_ = tf.placeholder(tf.float32)
 p_ = tf.placeholder(tf.float32)
+
 grad_threshold = tf.exp(-p_)
 
 if grad_scaling_method == 'scalar':
