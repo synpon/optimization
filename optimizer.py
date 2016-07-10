@@ -10,7 +10,7 @@ Loss: Change in loss
 """
 
 summary_freq = 100
-
+summaries_dir = '/tmp/logs'
 batch_size = 32
 epochs = 100
 #rnn = False # feed-forward otherwise
@@ -89,7 +89,6 @@ with tf.variable_scope("opt_net"):
 	# Feed-forward
 	x_grads = tf.placeholder(tf.float32, [None,None,2])
 	y_loss = tf.placeholder(tf.float32, [None])
-	#y_params = tf.placeholder(tf.float32, [None,None,2])
 	
 	# Scale inputs
 	scale = tf.placeholder(tf.float32)
@@ -136,11 +135,12 @@ with tf.variable_scope("opt_net"):
 	
 	h = tf.nn.relu(tf.batch_matmul(h,W2_1) + b2)
 	
-	### Make more efficient by using it in the style of AdamOptimizer etc.
-	
+	### Make more efficient by using it in the style of AdamOptimizer etc.	
 	# Apply gradients to the parameters in the train net.
 	
+	
 	# Calculate loss for the updated train net.
+	
 	
 	# Change in loss as a result of the parameter update
 	loss =  - y_loss
@@ -172,7 +172,12 @@ with tf.variable_scope("opt_net"):
 				print loss_
 
 
-##### Compare optimizer performance using Tensorboard #####
+##### Compare optimizer performance using TensorBoard #####
+if tf.gfile.Exists(summaries_dir):
+	tf.gfile.DeleteRecursively(summaries_dir)
+tf.gfile.MakeDirs(summaries_dir)
 
-
+sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
+adam_writer = tf.train.SummaryWriter(summaries_dir + '/adam')
+opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
 

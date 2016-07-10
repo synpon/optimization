@@ -1,6 +1,9 @@
+*.gz
+*.tar
 *.pyc
 *.txt
 *.log
 *.pkl
 *.csv
 MNIST_data/*
+/tests/MNIST_data/*
