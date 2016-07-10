@@ -55,7 +55,8 @@ def train():
 
 	# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
 	merged = tf.merge_all_summaries()
-	train_writer = tf.train.SummaryWriter(summaries_dir + '/train', sess.graph)
+	sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
+	adam_writer = tf.train.SummaryWriter(summaries_dir + '/adam')
 	tf.initialize_all_variables().run()
 
 	def feed_dict(train):
@@ -74,9 +75,23 @@ def train():
 			print('Accuracy at step %s: %s' % (i, acc))
 		
 		summary, _ = sess.run([merged, sgd_train_step], feed_dict=feed_dict(True))
-		train_writer.add_summary(summary, i)
+		sgd_writer.add_summary(summary, i)
 		
-	train_writer.close()
+	sgd_writer.close()
+		
+	# Reset variables
+	tf.initialize_all_variables().run()
+		
+	for i in range(max_steps):
+		acc = sess.run([accuracy], feed_dict=feed_dict(False))
+		
+		if i % 10 == 0:	
+			print('Accuracy at step %s: %s' % (i, acc))
+		
+		summary, _ = sess.run([merged, adam_train_step], feed_dict=feed_dict(True))
+		adam_writer.add_summary(summary, i)
+		
+	adam_writer.close()
 
 
 def main(_):
