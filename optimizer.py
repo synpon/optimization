@@ -7,11 +7,14 @@ import numpy as np
 Input: Gradients
 Output: Change in parameters (exp transform to reverse scaling?)
 Loss: Change in loss
+
+tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
+http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 """
 
 summary_freq = 100
 summaries_dir = '/tmp/logs'
-test_evaluation = False
+test_evaluation = True
 #rnn = False # feed-forward otherwise
 #rnn_num_layers = 1
 #rnn_size = 5
@@ -40,6 +43,7 @@ class MLP:
 		self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 		self.loss = tf.reduce_mean(-tf.reduce_sum(self.y_ * tf.log(y), reduction_indices=[1])) # Cross-entropy
+		tf.scalar_summary('loss', self.loss)
 
 		optimizer = tf.train.GradientDescentOptimizer(0.5)
 		
@@ -97,12 +101,13 @@ class OptNet:
 			
 		if grad_scaling_method == 'scalar':		
 			W1 = tf.Variable(tf.zeros([1,4]))
-		elif grad_scaling_factor == 'full':
+			W1_1 = tf.reshape(W1,(1,-1,4)) # Convert from rank 2 to rank 3
+		elif grad_scaling_method == 'full':
 			W1 = tf.Variable(tf.zeros([2,4]))
+			W1_1 = tf.reshape(W1,(2,-1,4)) # Convert from rank 2 to rank 3
 			
 		b1 = tf.Variable(tf.zeros([4]))
-
-		W1_1 = tf.reshape(W1,(1,-1,4)) # Convert from rank 2 to rank 3
+		
 		W1_1 = tf.tile(W1_1,(batch_size,1,1))
 
 		h = tf.nn.relu(tf.batch_matmul(x,W1_1) + b1)
@@ -205,18 +210,38 @@ for epoch in range(epochs):
 			print loss_, i
 
 ##### Compare optimizer performance using TensorBoard #####
+# Optimizer parameters are now treated as fixed
+
 if test_evaluation:
+	print "\nRunning optimizer comparison..."
+
 	if tf.gfile.Exists(summaries_dir):
 		tf.gfile.DeleteRecursively(summaries_dir)
 	tf.gfile.MakeDirs(summaries_dir)
+	
+	# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
+	merged = tf.merge_all_summaries()
 
 	#sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
 	adam_writer = tf.train.SummaryWriter(summaries_dir + '/adam')
 	opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
-
-	# Optimizer parameters are now treated as fixed
-
-	sess.run(mlp.init)
 	
+	# Adam
 	sess.run(mlp.init)
+	for i in range(mlp.batches):
+		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+		summary,_ = sess.run([merged, mlp.train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		adam_writer.add_summary(summary,i)
+		
+	adam_writer.close()
+	
+	# Opt net
+	sess.run(mlp.init)
+	for i in range(mlp.batches):
+		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+		###summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		opt_net_writer.add_summary(summary,i)
+	
+	opt_net_writer.close()
+	
 
