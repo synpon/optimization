@@ -125,13 +125,10 @@ class OptNet:
 		for i,v in enumerate(mlp.trainable_variables):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1]) ### Account for the other dimensions
+			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
 			v.assign_add(var_grads)
 			size += total
-		
-		# Calculate loss for the updated train net.
-		#_, new_loss = sess.run([mlp.train_step,mlp.loss], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		
 		self.x = tf.placeholder(tf.float32, [None,784])
 		self.y_ = tf.placeholder(tf.float32, [None,10])
