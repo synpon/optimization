@@ -52,12 +52,34 @@ class MLP:
 		grads = [tf.reshape(i,(-1,1)) for i in grads]
 		self.grads = tf.concat(0,grads)
 		
-		self.params = tf.trainable_variables()
+		self.trainable_variables = tf.trainable_variables()
 		
 		self.train_step = optimizer.apply_gradients(grad_var_pairs)
 
-		self.trainable_variables = tf.trainable_variables()
 		self.init = tf.initialize_all_variables()
+		
+	def init_optimizer_ops(self):
+		# Apply gradient update from the opt-net
+		W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3	
+		W1_1 = tf.tile(W1_1,(self.batch_size,1,1))
+		h = tf.nn.relu(tf.batch_matmul(self.trainable_variables,W1_1) + opt_net.b1)
+
+		W2_1 = tf.reshape(opt_net.W2,(1,-1,1)) # Convert from rank 2 to rank 3
+		W2_1 = tf.tile(W2_1,(self.batch_size,1,1))
+		
+		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + opt_net.b2) # Gradients
+		
+		# Apply gradients to the parameters in the train net.
+		total = 0
+		for i,v in enumerate(self.trainable_variables):
+			size = np.prod(list(v.get_shape()))
+			size = tf.to_int32(size)
+			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
+			var_grads = tf.reshape(var_grads,v.get_shape())
+			v.assign_add(var_grads)
+			size += total
+			
+		self.opt_net_train_step = v ### Should return None, like the default optimizers
 
 		
 class OptNet:
@@ -100,25 +122,25 @@ class OptNet:
 			x = tf.concat(2,[x1,x2])
 			
 		if grad_scaling_method == 'scalar':		
-			W1 = tf.Variable(tf.zeros([1,4]))
-			W1_1 = tf.reshape(W1,(1,-1,4)) # Convert from rank 2 to rank 3
+			self.W1 = tf.Variable(tf.zeros([1,4]))
+			W1_1 = tf.reshape(self.W1,(1,-1,4)) # Convert from rank 2 to rank 3
 		elif grad_scaling_method == 'full':
-			W1 = tf.Variable(tf.zeros([2,4]))
-			W1_1 = tf.reshape(W1,(2,-1,4)) # Convert from rank 2 to rank 3
+			self.W1 = tf.Variable(tf.zeros([2,4]))
+			W1_1 = tf.reshape(self.W1,(2,-1,4)) # Convert from rank 2 to rank 3
 			
-		b1 = tf.Variable(tf.zeros([4]))
+		self.b1 = tf.Variable(tf.zeros([4]))
 		
 		W1_1 = tf.tile(W1_1,(batch_size,1,1))
 
-		h = tf.nn.relu(tf.batch_matmul(x,W1_1) + b1)
+		h = tf.nn.relu(tf.batch_matmul(x,W1_1) + self.b1)
 		
-		W2 = tf.Variable(tf.zeros([4,1]))		
-		b2 = tf.Variable(tf.zeros([1]))
+		self.W2 = tf.Variable(tf.zeros([4,1]))		
+		self.b2 = tf.Variable(tf.zeros([1]))
 
-		W2_1 = tf.reshape(W2,(1,-1,1)) # Convert from rank 2 to rank 3
+		W2_1 = tf.reshape(self.W2,(1,-1,1)) # Convert from rank 2 to rank 3
 		W2_1 = tf.tile(W2_1,(batch_size,1,1))
 		
-		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + b2) # Gradients
+		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + self.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
@@ -159,7 +181,7 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 for i in range(mlp.batches):
 	batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 	# Train the batch, remembering the gradients and the loss
-	tmp = sess.run([mlp.train_step,mlp.loss,mlp.grads] + mlp.params, feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+	tmp = sess.run([mlp.train_step,mlp.loss,mlp.grads] + mlp.trainable_variables, feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 	loss_,grads_ = tmp[1:3]
 	params_ = tmp[3:]
 	
@@ -170,6 +192,7 @@ for i in range(mlp.batches):
 print(sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels}))
 
 opt_net = OptNet()
+mlp.init_optimizer_ops()
 sess.run(opt_net.init)
 
 sess.run(mlp.init) # reset variables for safety
@@ -233,10 +256,10 @@ if test_evaluation:
 	adam_writer.close()
 	
 	# Opt net
-	sess.run(mlp.init)
+	sess.run(mlp.init) # Reset parameters of net to be trained
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		###summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		opt_net_writer.add_summary(summary,i)
 	
 	opt_net_writer.close()
