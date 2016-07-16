@@ -59,10 +59,12 @@ class MLP:
 		self.init = tf.initialize_all_variables()
 		
 	def init_optimizer_ops(self):
+		input = self.trainable_variables
+	
 		# Apply gradient update from the opt-net
 		W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3	
 		W1_1 = tf.tile(W1_1,(self.batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(self.trainable_variables,W1_1) + opt_net.b1)
+		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
 
 		W2_1 = tf.reshape(opt_net.W2,(1,-1,1)) # Convert from rank 2 to rank 3
 		W2_1 = tf.tile(W2_1,(self.batch_size,1,1))
