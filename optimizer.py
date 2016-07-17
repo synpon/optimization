@@ -69,15 +69,21 @@ class MLP:
 		
 	def init_optimizer_ops(self):
 		input = self.grads
-
-		# Retrieve the value tensors of the variables and flatten them.
-		#input = [tf.reshape(v.value(),[-1]) for v in input]
-		#input = tf.concat(0,input)
 		input = tf.reshape(input,[1,-1,1])
+		
+		if grad_scaling_method == 'scalar':
+			input = input*tf.constant(grad_scaling_factor)
+			
+		elif grad_scaling_method == 'full':
+			raise NotImplementedError
+			
+		if grad_scaling_method == 'scalar':
+			W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3
+		elif grad_scaling_method == 'full':
+			raise NotImplementedError
 		
 		### All repeated in opt_net, although the variables are taken from there
 		# Apply gradient update from the opt-net
-		W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3	
 		W1_1 = tf.tile(W1_1,(self.batch_size,1,1))
 
 		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
@@ -148,10 +154,8 @@ class OptNet:
 			self.W1 = tf.Variable(tf.random_uniform([2,4]))
 			W1_1 = tf.reshape(self.W1,(2,-1,4)) # Convert from rank 2 to rank 3
 			
-		self.b1 = tf.Variable(tf.zeros([4]))
-		
+		self.b1 = tf.Variable(tf.zeros([4]))		
 		W1_1 = tf.tile(W1_1,(batch_size,1,1))
-
 		h = tf.nn.relu(tf.batch_matmul(x,W1_1) + self.b1)
 		
 		self.W2 = tf.Variable(tf.random_uniform([4,1]))		
