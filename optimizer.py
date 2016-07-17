@@ -1,5 +1,6 @@
 from __future__ import division
 from tensorflow.examples.tutorials.mnist import input_data
+from tensorflow.python.ops import control_flow_ops
 import tensorflow as tf
 import numpy as np
 
@@ -28,7 +29,7 @@ grad_scaling_factor = 0.1
 
 class MLP:
 	def __init__(self):
-		self.batch_size = 128
+		self.batch_size = 1 # 128
 		self.batches = 1000
 
 		# Define architecture
@@ -45,25 +46,32 @@ class MLP:
 		self.loss = tf.reduce_mean(-tf.reduce_sum(self.y_ * tf.log(y), reduction_indices=[1])) # Cross-entropy
 		tf.scalar_summary('loss', self.loss)
 
-		optimizer = tf.train.GradientDescentOptimizer(0.5)
+		sgd_optimizer = tf.train.GradientDescentOptimizer(0.5)
+		adam_optimizer = tf.train.AdamOptimizer()
 		
-		grad_var_pairs = optimizer.compute_gradients(self.loss)
+		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grads,vars = zip(*grad_var_pairs)
 		grads = [tf.reshape(i,(-1,1)) for i in grads]
 		self.grads = tf.concat(0,grads)
 		
 		self.trainable_variables = tf.trainable_variables()
 		
-		self.train_step = optimizer.apply_gradients(grad_var_pairs)
+		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
+		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 
 		self.init = tf.initialize_all_variables()
 		
 	def init_optimizer_ops(self):
 		input = self.trainable_variables
-	
+		# Retrieve the value tensors of the variables and flatten them.
+		input = [tf.reshape(v.initialized_value(),[-1]) for v in input]
+		input = tf.concat(0,input)
+		input = tf.reshape(input,[1,-1,1])
+		
 		# Apply gradient update from the opt-net
 		W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3	
 		W1_1 = tf.tile(W1_1,(self.batch_size,1,1))
+
 		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
 
 		W2_1 = tf.reshape(opt_net.W2,(1,-1,1)) # Convert from rank 2 to rank 3
@@ -73,15 +81,16 @@ class MLP:
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
+		ret = []
 		for i,v in enumerate(self.trainable_variables):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
 			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
-			v.assign_add(var_grads)
+			ret.append(v.assign_add(var_grads))
 			size += total
 			
-		self.opt_net_train_step = v ### Should return None, like the default optimizers
+		self.opt_net_train_step = control_flow_ops.group(*ret) ### Should return None, like the default optimizers
 
 		
 class OptNet:
@@ -163,8 +172,7 @@ class OptNet:
 		# Change in loss as a result of the parameter update (ideally negative)
 		self.loss = new_loss - self.y_losses
 		
-		optimizer = tf.train.AdamOptimizer()
-		self.train_step = optimizer.minimize(self.loss)
+		self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 		self.init = tf.initialize_all_variables()
 		
@@ -183,7 +191,7 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 for i in range(mlp.batches):
 	batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 	# Train the batch, remembering the gradients and the loss
-	tmp = sess.run([mlp.train_step,mlp.loss,mlp.grads] + mlp.trainable_variables, feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+	tmp = sess.run([mlp.adam_train_step,mlp.loss,mlp.grads] + mlp.trainable_variables, feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 	loss_,grads_ = tmp[1:3]
 	params_ = tmp[3:]
 	
@@ -244,15 +252,24 @@ if test_evaluation:
 	# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
 	merged = tf.merge_all_summaries()
 
-	#sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
+	sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
 	adam_writer = tf.train.SummaryWriter(summaries_dir + '/adam')
 	opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
+
+	# SGD
+	sess.run(mlp.init)
+	for i in range(mlp.batches):
+		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		sgd_writer.add_summary(summary,i)
+		
+	sgd_writer.close()
 	
 	# Adam
 	sess.run(mlp.init)
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_ = sess.run([merged, mlp.train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		summary,_ = sess.run([merged, mlp.adam_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		adam_writer.add_summary(summary,i)
 		
 	adam_writer.close()
