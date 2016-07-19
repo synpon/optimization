@@ -20,7 +20,6 @@ test_evaluation = True
 #rnn_num_layers = 1
 #rnn_size = 5
 seq_length = 1
-epochs = 1
 
 grad_scaling_methods = ['scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
@@ -42,7 +41,15 @@ class MLP:
 		self.x = tf.placeholder(tf.float32, [None, 784])
 		self.y_ = tf.placeholder(tf.float32, [None, 10])
 
-		self.W = tf.Variable(tf.zeros([784, 10]))
+		#self.W1 = tf.Variable(tf.random_uniform([784, 1000]))
+		#self.b1 = tf.Variable(tf.zeros([1000]))
+		#h = tf.nn.relu(tf.matmul(self.x,self.W1) + self.b1)
+		
+		#self.W2 = tf.Variable(tf.random_uniform([1000, 250]))
+		#self.b2 = tf.Variable(tf.zeros([250]))
+		#h = tf.nn.relu(tf.matmul(h,self.W2) + self.b2)
+		
+		self.W = tf.Variable(tf.random_uniform([784, 10]))
 		self.b = tf.Variable(tf.zeros([10]))
 		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
 		
@@ -66,7 +73,8 @@ class MLP:
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 
 		self.init = tf.initialize_all_variables()
-		
+	
+	
 	def init_optimizer_ops(self):
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1])
@@ -106,11 +114,18 @@ class MLP:
 			size += total
 		self.var_grads = input
 		self.opt_net_train_step = control_flow_ops.group(*ret)
+		
+		
+	def fc_layer(input, size, act=tf.nn.relu):
+		W = tf.Variable(tf.random_uniform([input.shape[1], size])) ### check shape index
+		b = tf.Variable(tf.zeros([size]))
+		h = act(tf.matmul(self.x,self.W1) + self.b1)
+		return h
 
 		
 class OptNet:
 	def __init__(self):
-		batches = 1000
+		self.epochs = 4
 		batch_size = 1 ###
 
 		# Define architecture
@@ -190,6 +205,16 @@ class OptNet:
 		self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 		self.init = tf.initialize_all_variables()
+	
+	
+	def fc_layer(input, size, act=tf.nn.relu):
+		### channels? (eg 1,2,5,10)
+		W = tf.Variable(tf.random_uniform([input.shape[1],size])) ### check shape index
+		W2 = tf.reshape(W,(1,-1,size)) # Convert from rank 2 to rank 3
+		W2 = tf.tile(W2,(2,1,1)) # 2 is num_batches
+		b = tf.Variable(tf.zeros([size]))	
+		h = act(tf.batch_matmul(x,W2) + b)
+		return h
 		
 		
 sess = tf.Session()		
@@ -203,6 +228,8 @@ train_params_list = []
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
+# Create training data
+print "\nCreating training dataset..."
 for i in range(mlp.batches):
 	batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 	# Train the batch, remembering the gradients and the loss
@@ -222,12 +249,15 @@ sess.run(opt_net.init)
 
 sess.run(mlp.init) # reset variables for safety
 
-for epoch in range(epochs):
+# Train opt net
+print "\nTraining optimizer..."
+for epoch in range(opt_net.epochs):
 	print "Epoch ", epoch
 
 	# Leave room for the rest of the sequence at the end
 	max_length = len(train_grads_list) - seq_length
 	perm = np.random.permutation(range(max_length))
+	losses = []
 
 	for i in range(max_length):
 		start = perm[i]
@@ -250,9 +280,12 @@ for epoch in range(epochs):
 										opt_net.y_losses: train_loss,
 										opt_net.x: batch_x,
 										opt_net.y_: batch_y})
-		
-		if i % summary_freq == 0:
-			print loss_, i
+
+		#if i % summary_freq == 0:
+		#	print loss_, i										
+		losses.append(loss_)
+	
+	print np.mean(losses)
 
 ##### Compare optimizer performance using TensorBoard #####
 # Optimizer parameters are now treated as fixed
