@@ -4,6 +4,8 @@ import numpy as np
 # Generates n points and their losses from one landscape
 # Creating a sufficient training dataset would require this to be run multiple times
 
+# Numbers are very small, from around 10^-30 to 10^-5
+
 num_gaussians = 100 # Number of Gaussians
 m = 10 # Number of dimensions
 n = 1000 # Training set size, number of points
