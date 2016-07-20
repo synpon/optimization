@@ -20,6 +20,7 @@ test_evaluation = True
 #rnn_num_layers = 1
 #rnn_size = 5
 seq_length = 1
+grad_clip_value = 0.01 # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
@@ -40,14 +41,6 @@ class MLP:
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
 		self.y_ = tf.placeholder(tf.float32, [None, 10])
-
-		#self.W1 = tf.Variable(tf.random_uniform([784, 1000]))
-		#self.b1 = tf.Variable(tf.zeros([1000]))
-		#h = tf.nn.relu(tf.matmul(self.x,self.W1) + self.b1)
-		
-		#self.W2 = tf.Variable(tf.random_uniform([1000, 250]))
-		#self.b2 = tf.Variable(tf.zeros([250]))
-		#h = tf.nn.relu(tf.matmul(h,self.W2) + self.b2)
 		
 		self.W = tf.Variable(tf.random_uniform([784, 10]))
 		self.b = tf.Variable(tf.zeros([10]))
@@ -65,6 +58,10 @@ class MLP:
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grads,vars = zip(*grad_var_pairs)
 		grads = [tf.reshape(i,(-1,1)) for i in grads]
+		
+		if not grad_clip_value is None:
+			grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
+			
 		self.grads = tf.concat(0,grads)
 		
 		self.trainable_variables = tf.trainable_variables()
@@ -190,6 +187,10 @@ class OptNet:
 			size = tf.to_int32(size)
 			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
+			
+			if not grad_clip_value is None:
+				var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
+			
 			v.assign_add(var_grads)
 			size += total
 		
