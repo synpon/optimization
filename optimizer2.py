@@ -1,14 +1,40 @@
+from __future__ import division
+from tensorflow.examples.tutorials.mnist import input_data
+from tensorflow.python.ops import control_flow_ops
 import tensorflow as tf
 import numpy as np
 
-# Generates n points and their losses from one landscape
+"""
+Input: Gradients
+Output: Change in parameters (exp transform to reverse scaling?)
+Loss: Change in loss
+
+tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
+http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
+"""
+
+summary_freq = 100
+summaries_dir = '/tmp/logs'
+test_evaluation = True
+#rnn = False # feed-forward otherwise
+#rnn_num_layers = 1
+#rnn_size = 5
+seq_length = 1
+grad_clip_value = 0.01 # Set to None to disable
+
+grad_scaling_methods = ['scalar','full']
+grad_scaling_method = grad_scaling_methods[0]
+grad_scaling_factor = 0.1
+
+
+# Generate n points and their losses from one landscape
 # Creating a sufficient training dataset would require this to be run multiple times
 
 # Numbers are very small, from around 10^-30 to 10^-5
 
 num_gaussians = 100 # Number of Gaussians
-m = 10 # Number of dimensions
-n = 1000 # Training set size, number of points
+m = 100 # Number of dimensions
+n = 10000 # Training set size, number of points
 
 # Not probabilities so normalization is not necessary
 gaussian_weights = tf.Variable(tf.random_uniform(shape=(num_gaussians,)))

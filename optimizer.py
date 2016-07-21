@@ -20,11 +20,12 @@ test_evaluation = True
 #rnn_num_layers = 1
 #rnn_size = 5
 seq_length = 1
-grad_clip_value = 0.01 # Set to None to disable
+grad_clip_value = None # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
+p = 10.0 ### check value
 
 #test_mlp_sigmoid = False
 #test_mlp_relu = False
@@ -42,8 +43,8 @@ class MLP:
 		self.x = tf.placeholder(tf.float32, [None, 784])
 		self.y_ = tf.placeholder(tf.float32, [None, 10])
 		
-		self.W = tf.Variable(tf.random_uniform([784, 10]))
-		self.b = tf.Variable(tf.zeros([10]))
+		self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
+		self.b = tf.Variable(tf.constant(0.1, shape=[10]))
 		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))
@@ -74,29 +75,42 @@ class MLP:
 	
 	def init_optimizer_ops(self):
 		input = self.grads
-		input = tf.reshape(input,[1,-1,1])
+		input = tf.reshape(input,[1,-1,1]) ### check
 		
-		if grad_scaling_method == 'scalar':
-			input = input*tf.constant(grad_scaling_factor)
+		#if grad_scaling_method == 'scalar':
+		#	input = input*tf.constant(grad_scaling_factor)		
 			
-		elif grad_scaling_method == 'full':
-			raise NotImplementedError
-			
+		#if grad_scaling_method == 'scalar':
+		#	W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3
+		
+		# Scale inputs
 		if grad_scaling_method == 'scalar':
-			W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3
-		elif grad_scaling_method == 'full':
-			raise NotImplementedError
+			input = input*tf.constant(grad_scaling_factor)	
+			
+		elif grad_scaling_method == 'full':	
+			p_ = tf.constant(p)
+			grad_threshold = tf.exp(-p_)
+		
+			# Operations are element-wise
+			mask = tf.greater(input,grad_threshold)
+			mask = tf.to_float(mask) # Convert from boolean
+			inv_mask = 1 - mask
+			
+			x1_cond1 = tf.log(tf.abs(input))/self.p
+			x2_cond1 = tf.sign(input)
+			x1_cond2 = -tf.ones(tf.shape(input))
+			x2_cond2 = tf.exp(p_)*input
+			
+			x1 = x1_cond1*mask + x1_cond2*inv_mask
+			x2 = x2_cond1*mask + x2_cond2*inv_mask
+			
+			x = tf.concat(2,[x1,x2])		
 		
 		### All repeated in opt_net, although the variables are taken from there
+		### Share code - activations functions could become different
 		# Apply gradient update from the opt-net
-		W1_1 = tf.tile(W1_1,(self.batch_size,1,1))
-
-		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
-
-		W2_1 = tf.reshape(opt_net.W2,(1,-1,1)) # Convert from rank 2 to rank 3
-		W2_1 = tf.tile(W2_1,(self.batch_size,1,1))
-		
-		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + opt_net.b2) # Gradients
+		h = tf.nn.relu(tf.batch_matmul(input,opt_net.W1_1) + opt_net.b1)
+		h = tf.nn.relu(tf.batch_matmul(h,opt_net.W2_1) + opt_net.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
@@ -114,8 +128,8 @@ class MLP:
 		
 		
 	def fc_layer(input, size, act=tf.nn.relu):
-		W = tf.Variable(tf.random_uniform([input.shape[1], size])) ### check shape index
-		b = tf.Variable(tf.zeros([size]))
+		W = tf.Variable(tf.random_uniform([input.shape[1], size])) ### check shape index, truncated normal
+		b = tf.Variable(tf.zeros([size])) ### constant
 		h = act(tf.matmul(self.x,self.W1) + self.b1)
 		return h
 
@@ -124,64 +138,58 @@ class OptNet:
 	def __init__(self):
 		self.epochs = 4
 		batch_size = 1 ###
+		feature_sizes = [1,4,1]
+		assert feature_sizes[-1] == 1
+		
+		if grad_scaling_method == 'full':
+			feature_sizes[0] = 2
 
 		# Define architecture
 		# Feed-forward
-		if grad_scaling_method == 'scalar':
-			self.x_grads = tf.placeholder(tf.float32, [None,None,1])
-		elif grad_scaling_method == 'full':
-			self.x_grads = tf.placeholder(tf.float32, [None,None,2])
-
+		self.x_grads = tf.placeholder(tf.float32, [None,None,feature_sizes[0]]) # input
 		self.y_losses = tf.placeholder(tf.float32) ### batch?
 		
 		# Scale inputs
-		self.scale = tf.placeholder(tf.float32)
-		self.p = tf.placeholder(tf.float32)
-
-		grad_threshold = tf.exp(-self.p)
-
 		if grad_scaling_method == 'scalar':
-			x = self.x_grads*self.scale
+			x = self.x_grads*tf.constant(grad_scaling_factor)	
 			
-		elif grad_scaling_method == 'full':
+		elif grad_scaling_method == 'full':	
+			p_ = tf.constant(p)
+			grad_threshold = tf.exp(-p_)
+		
 			# Operations are element-wise
 			mask = tf.greater(self.x_grads,grad_threshold)
 			mask = tf.to_float(mask) # Convert from boolean
 			inv_mask = 1 - mask
 			
-			x1_cond1 = tf.log(tf.abs(self.x_grads))/self.p
+			x1_cond1 = tf.log(tf.abs(self.x_grads))/p_
 			x2_cond1 = tf.sign(self.x_grads)
 			x1_cond2 = -tf.ones(tf.shape(self.x_grads))
-			x2_cond2 = tf.exp(self.p)*self.x_grads
+			x2_cond2 = tf.exp(p_)*self.x_grads
 			
 			x1 = x1_cond1*mask + x1_cond2*inv_mask
 			x2 = x2_cond1*mask + x2_cond2*inv_mask
 			
 			x = tf.concat(2,[x1,x2])
-			
-		if grad_scaling_method == 'scalar':		
-			self.W1 = tf.Variable(tf.random_uniform([1,4]))
-			W1_1 = tf.reshape(self.W1,(1,-1,4)) # Convert from rank 2 to rank 3
-		elif grad_scaling_method == 'full':
-			self.W1 = tf.Variable(tf.random_uniform([2,4]))
-			W1_1 = tf.reshape(self.W1,(2,-1,4)) # Convert from rank 2 to rank 3
-			
-		self.b1 = tf.Variable(tf.zeros([4]))		
-		W1_1 = tf.tile(W1_1,(batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(x,W1_1) + self.b1)
+				
+		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[feature_sizes[0],feature_sizes[1]]))
+		W1_1 = tf.reshape(self.W1,(-1,feature_sizes[0],feature_sizes[1])) # Convert from rank 2 to rank 3
+		self.W1_1 = tf.tile(W1_1,(batch_size,1,1))
+		self.b1 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[1]]))
 		
-		self.W2 = tf.Variable(tf.random_uniform([4,1]))		
-		self.b2 = tf.Variable(tf.zeros([1]))
+		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
-		W2_1 = tf.reshape(self.W2,(1,-1,1)) # Convert from rank 2 to rank 3
-		W2_1 = tf.tile(W2_1,(batch_size,1,1))
-		
-		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + self.b2) # Gradients
+		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
+		W2_1 = tf.reshape(self.W2,(-1,feature_sizes[1],feature_sizes[2])) # Convert from rank 2 to rank 3
+		self.W2_1 = tf.tile(W2_1,(batch_size,1,1))
+		self.b2 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[2]]))
+
+		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
 		### Shouldn't hard-code the model to be updated
-		### Use like the inbuilt optimizers
+		### Use in the style of the inbuilt optimizers
 		for i,v in enumerate(mlp.trainable_variables):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
@@ -210,10 +218,10 @@ class OptNet:
 	
 	def fc_layer(input, size, act=tf.nn.relu):
 		### channels? (eg 1,2,5,10)
-		W = tf.Variable(tf.random_uniform([input.shape[1],size])) ### check shape index
+		W = tf.Variable(tf.random_uniform([input.shape[1],size])) ### check shape index, truncated normal
 		W2 = tf.reshape(W,(1,-1,size)) # Convert from rank 2 to rank 3
 		W2 = tf.tile(W2,(2,1,1)) # 2 is num_batches
-		b = tf.Variable(tf.zeros([size]))	
+		b = tf.Variable(tf.zeros([size])) ### constant 0.1
 		h = act(tf.batch_matmul(x,W2) + b)
 		return h
 		
