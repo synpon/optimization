@@ -76,13 +76,7 @@ class MLP:
 	def init_optimizer_ops(self):
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
-		
-		#if grad_scaling_method == 'scalar':
-		#	input = input*tf.constant(grad_scaling_factor)		
-			
-		#if grad_scaling_method == 'scalar':
-		#	W1_1 = tf.reshape(opt_net.W1,(1,-1,4)) # Convert from rank 2 to rank 3
-		
+
 		# Scale inputs
 		if grad_scaling_method == 'scalar':
 			input = input*tf.constant(grad_scaling_factor)	
@@ -96,7 +90,7 @@ class MLP:
 			mask = tf.to_float(mask) # Convert from boolean
 			inv_mask = 1 - mask
 			
-			x1_cond1 = tf.log(tf.abs(input))/self.p
+			x1_cond1 = tf.log(tf.abs(input))/p_
 			x2_cond1 = tf.sign(input)
 			x1_cond2 = -tf.ones(tf.shape(input))
 			x2_cond2 = tf.exp(p_)*input
@@ -104,7 +98,7 @@ class MLP:
 			x1 = x1_cond1*mask + x1_cond2*inv_mask
 			x2 = x2_cond1*mask + x2_cond2*inv_mask
 			
-			x = tf.concat(2,[x1,x2])		
+			input = tf.concat(2,[x1,x2])		
 		
 		### All repeated in opt_net, although the variables are taken from there
 		### Share code - activations functions could become different
@@ -124,13 +118,12 @@ class MLP:
 			ret.append(v.assign_add(var_grads))
 			size += total
 		self.var_grads = input
-		self.opt_net_train_step = control_flow_ops.group(*ret)
-		
+		self.opt_net_train_step = control_flow_ops.group(*ret)		
 		
 	def fc_layer(input, size, act=tf.nn.relu):
-		W = tf.Variable(tf.random_uniform([input.shape[1], size])) ### check shape index, truncated normal
-		b = tf.Variable(tf.zeros([size])) ### constant
-		h = act(tf.matmul(self.x,self.W1) + self.b1)
+		W = tf.Variable(tf.random_uniform([size[0], size[1]])) ### check shape index, truncated normal
+		b = tf.Variable(tf.zeros([size[1]])) ### constant
+		h = act(tf.matmul(input,W) + b)
 		return h
 
 		
@@ -146,7 +139,7 @@ class OptNet:
 
 		# Define architecture
 		# Feed-forward
-		self.x_grads = tf.placeholder(tf.float32, [None,None,feature_sizes[0]]) # input
+		self.x_grads = tf.placeholder(tf.float32, [None,None,1]) # input
 		self.y_losses = tf.placeholder(tf.float32) ### batch?
 		
 		# Scale inputs
@@ -176,7 +169,7 @@ class OptNet:
 		W1_1 = tf.reshape(self.W1,(-1,feature_sizes[0],feature_sizes[1])) # Convert from rank 2 to rank 3
 		self.W1_1 = tf.tile(W1_1,(batch_size,1,1))
 		self.b1 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[1]]))
-		
+
 		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
 		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
@@ -216,13 +209,12 @@ class OptNet:
 		self.init = tf.initialize_all_variables()
 	
 	
-	def fc_layer(input, size, act=tf.nn.relu):
-		### channels? (eg 1,2,5,10)
-		W = tf.Variable(tf.random_uniform([input.shape[1],size])) ### check shape index, truncated normal
-		W2 = tf.reshape(W,(1,-1,size)) # Convert from rank 2 to rank 3
-		W2 = tf.tile(W2,(2,1,1)) # 2 is num_batches
-		b = tf.Variable(tf.zeros([size])) ### constant 0.1
-		h = act(tf.batch_matmul(x,W2) + b)
+	def fc_layer(self, input, size, act=tf.nn.relu):
+		W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[size[0],size[1]]))
+		W = tf.reshape(W,(-1,size[0],size[1])) # Convert from rank 2 to rank 3
+		W = tf.tile(W,(self.num_batches,1,1))
+		b = tf.Variable(tf.constant(0.1, shape=[size[1]]))
+		h = act(tf.batch_matmul(input,W) + b)
 		return h
 		
 		
