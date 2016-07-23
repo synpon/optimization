@@ -23,9 +23,9 @@ seq_length = 1
 grad_clip_value = None # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
-grad_scaling_method = grad_scaling_methods[0]
+grad_scaling_method = grad_scaling_methods[1]
 grad_scaling_factor = 0.1
-p = 10.0 ### check value
+p = 10.0
 
 #test_mlp_sigmoid = False
 #test_mlp_relu = False
@@ -77,28 +77,7 @@ class MLP:
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
 
-		# Scale inputs
-		if grad_scaling_method == 'scalar':
-			input = input*tf.constant(grad_scaling_factor)	
-			
-		elif grad_scaling_method == 'full':	
-			p_ = tf.constant(p)
-			grad_threshold = tf.exp(-p_)
-		
-			# Operations are element-wise
-			mask = tf.greater(input,grad_threshold)
-			mask = tf.to_float(mask) # Convert from boolean
-			inv_mask = 1 - mask
-			
-			x1_cond1 = tf.log(tf.abs(input))/p_
-			x2_cond1 = tf.sign(input)
-			x1_cond2 = -tf.ones(tf.shape(input))
-			x2_cond2 = tf.exp(p_)*input
-			
-			x1 = x1_cond1*mask + x1_cond2*inv_mask
-			x2 = x2_cond1*mask + x2_cond2*inv_mask
-			
-			input = tf.concat(2,[x1,x2])		
+		input = scale_grads(input)
 		
 		### All repeated in opt_net, although the variables are taken from there
 		### Share code - activations functions could become different
@@ -142,28 +121,7 @@ class OptNet:
 		self.x_grads = tf.placeholder(tf.float32, [None,None,1]) # input
 		self.y_losses = tf.placeholder(tf.float32) ### batch?
 		
-		# Scale inputs
-		if grad_scaling_method == 'scalar':
-			x = self.x_grads*tf.constant(grad_scaling_factor)	
-			
-		elif grad_scaling_method == 'full':	
-			p_ = tf.constant(p)
-			grad_threshold = tf.exp(-p_)
-		
-			# Operations are element-wise
-			mask = tf.greater(self.x_grads,grad_threshold)
-			mask = tf.to_float(mask) # Convert from boolean
-			inv_mask = 1 - mask
-			
-			x1_cond1 = tf.log(tf.abs(self.x_grads))/p_
-			x2_cond1 = tf.sign(self.x_grads)
-			x1_cond2 = -tf.ones(tf.shape(self.x_grads))
-			x2_cond2 = tf.exp(p_)*self.x_grads
-			
-			x1 = x1_cond1*mask + x1_cond2*inv_mask
-			x2 = x2_cond1*mask + x2_cond2*inv_mask
-			
-			x = tf.concat(2,[x1,x2])
+		x = scale_grads(self.x_grads)
 				
 		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[feature_sizes[0],feature_sizes[1]]))
 		W1_1 = tf.reshape(self.W1,(-1,feature_sizes[0],feature_sizes[1])) # Convert from rank 2 to rank 3
@@ -191,7 +149,7 @@ class OptNet:
 			
 			if not grad_clip_value is None:
 				var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
-			
+
 			v.assign_add(var_grads)
 			size += total
 		
@@ -216,6 +174,32 @@ class OptNet:
 		b = tf.Variable(tf.constant(0.1, shape=[size[1]]))
 		h = act(tf.batch_matmul(input,W) + b)
 		return h
+		
+	
+def scale_grads(input):
+	if grad_scaling_method == 'scalar':
+		input = input*tf.constant(grad_scaling_factor)	
+		
+	elif grad_scaling_method == 'full':	
+		p_ = tf.constant(p)
+		grad_threshold = tf.exp(-p_)
+	
+		# Operations are element-wise
+		mask = tf.greater(tf.abs(input),grad_threshold)
+		mask = tf.to_float(mask) # Convert from boolean
+		inv_mask = 1 - mask
+		
+		x1_cond1 = tf.log(tf.abs(input))/p_
+		x2_cond1 = tf.sign(input)
+		x1_cond2 = -tf.ones(tf.shape(input))
+		x2_cond2 = tf.exp(p_)*input
+		
+		x1 = x1_cond1*mask + x1_cond2*inv_mask
+		x2 = x2_cond1*mask + x2_cond2*inv_mask
+		
+		input = tf.concat(2,[x1,x2])
+		
+	return input
 		
 		
 sess = tf.Session()		
@@ -329,7 +313,7 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		### Two possible train steps here - should only be one
 		summary,_,l = sess.run([merged, mlp.opt_net_train_step,mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-		print l
+		#print l
 		opt_net_writer.add_summary(summary,i)
 	
 	opt_net_writer.close()

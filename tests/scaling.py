@@ -20,7 +20,7 @@ if grad_scaling_method == 'scalar':
 	
 elif grad_scaling_method == 'full':
 	# Operations are element-wise
-	mask = tf.greater(x_,grad_threshold)
+	mask = tf.greater(tf.abs(x_),grad_threshold)
 	mask = tf.to_float(mask) # Convert from boolean
 	inv_mask = 1 - mask
 	
