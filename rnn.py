@@ -33,8 +33,6 @@ def rnn(cell, inputs, initial_state=None, dtype=None,
 		if varscope.caching_device is None:
 			varscope.set_caching_device(lambda op: op.device)
 
-		# Temporarily avoid EmbeddingWrapper and seq2seq badness
-		# TODO(lukaszkaiser): remove EmbeddingWrapper
 		if inputs[0].get_shape().ndims != 1:
 			(fixed_batch_size, input_size) = inputs[0].get_shape().with_rank(2)
 			if input_size.value is None:
@@ -66,10 +64,11 @@ def rnn(cell, inputs, initial_state=None, dtype=None,
 			max_sequence_length = math_ops.reduce_max(sequence_length)
 
 		for time, input_ in enumerate(inputs):
-			if time > 0: varscope.reuse_variables()
-			# pylint: disable=cell-var-from-loop
+			if time > 0:
+				varscope.reuse_variables()
+
 			call_cell = lambda: cell(input_, state)
-			# pylint: enable=cell-var-from-loop
+
 			if sequence_length is not None:
 				(output, state) = _rnn_step(
 						time=time,

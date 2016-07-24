@@ -24,6 +24,7 @@ D = [tf.diag(i) for i in D]
 D = tf.pack(D) # num_gaussians,m,m
 
 cov_matrices = tf.batch_matmul(tf.batch_matmul(Q_T,D),Q) # num_gaussians,m,m
+inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
 
 points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
 
@@ -31,8 +32,6 @@ points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
 tmp_points = tf.tile(points, multiples=[1,1,num_gaussians])
 tmp_mean_vectors = tf.tile(mean_vectors, multiples=[1,1,n]) 
 d = tmp_points - tf.transpose(tmp_mean_vectors,[2,1,0]) # n,m,num_gaussians
-
-inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
 
 losses = tf.batch_matmul(tf.transpose(d,[2,0,1]),inv_cov_matrices)
 # Follows the code in SciPy's multivariate_normal
@@ -52,3 +51,20 @@ sess = tf.Session()
 
 sess.run(init)
 print sess.run(losses)
+
+
+def gmm_loss(points, mean_vectors, inv_cov_matrices):
+	tmp_points = tf.tile(points, multiples=[1,1,num_gaussians])
+	tmp_mean_vectors = tf.tile(mean_vectors, multiples=[1,1,n]) 
+	d = tmp_points - tf.transpose(tmp_mean_vectors,[2,1,0]) # n,m,num_gaussians
+
+	losses = tf.batch_matmul(tf.transpose(d,[2,0,1]),inv_cov_matrices)
+	# Follows the code in SciPy's multivariate_normal
+	losses = tf.square(losses) # element-wise (num_gaussians,n,m)
+	losses = tf.reduce_sum(losses,[2]) # Sum over the dimensions
+	# The pdfs of the Gaussians are negative in order to create a minimization problem.
+	losses = -tf.exp(-0.5*losses)
+	loss = tf.reduce_mean(losses,[0]) # Average over the Gaussians
+	return loss
+	
+	
