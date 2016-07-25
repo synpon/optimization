@@ -312,7 +312,7 @@ if test_evaluation:
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		### Two possible train steps here - should only be one
-		summary,_,l = sess.run([merged, mlp.opt_net_train_step,mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		summary,_,l = sess.run([merged, mlp.opt_net_train_step, mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		#print l
 		opt_net_writer.add_summary(summary,i)
 	

@@ -112,8 +112,12 @@ class MLP:
 			
 		self.grads = tf.concat(0,grads)
 		
-		### 8 trainable variables - should be 2
-		self.trainable_variables = tf.trainable_variables()
+		### 7 trainable variables - should be 2
+		### 	points and the 4 opt net variables
+		#print tf.trainable_variables()
+		#print [i.get_shape() for i in tf.trainable_variables()]
+		#print "---"
+		self.trainable_variables = tf.trainable_variables()[4:] ### fix properly
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
@@ -122,14 +126,17 @@ class MLP:
 	
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
-
 		input = scale_grads(input)
-		
-		### All repeated in opt_net, although the variables are taken from there
-		### Share code - activations functions could become different
-		# Apply gradient update from the opt-net
-		h = tf.nn.relu(tf.batch_matmul(input,opt_net.W1_1) + opt_net.b1)
-		h = tf.nn.relu(tf.batch_matmul(h,opt_net.W2_1) + opt_net.b2) # Gradients
+
+		### Share code with opt net - activations functions could become different
+		# Apply gradient update from the opt-net		
+		W1_1 = tf.reshape(opt_net.W1,(-1,opt_net.feature_sizes[0],opt_net.feature_sizes[1])) # Convert from rank 2 to rank 3
+		W1_1 = tf.tile(W1_1,(1,1,1))
+		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
+
+		W2_1 = tf.reshape(opt_net.W2,(-1,opt_net.feature_sizes[1],opt_net.feature_sizes[2])) # Convert from rank 2 to rank 3
+		W2_1 = tf.tile(W2_1,(1,1,1))
+		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + opt_net.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
@@ -157,11 +164,11 @@ class OptNet:
 	def __init__(self):
 		self.epochs = 4
 		self.batch_size = 32
-		feature_sizes = [1,4,1]
-		assert feature_sizes[-1] == 1
+		self.feature_sizes = [1,4,1]
+		assert self.feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
-			feature_sizes[0] = 2
+			self.feature_sizes[0] = 2
 
 		# Define architecture
 		# Feed-forward
@@ -176,17 +183,17 @@ class OptNet:
 		
 		x = scale_grads(self.x_grads)
 
-		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[feature_sizes[0],feature_sizes[1]]))
-		W1_1 = tf.reshape(self.W1,(-1,feature_sizes[0],feature_sizes[1])) # Convert from rank 2 to rank 3
+		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[self.feature_sizes[0],self.feature_sizes[1]]))
+		W1_1 = tf.reshape(self.W1,(-1,self.feature_sizes[0],self.feature_sizes[1])) # Convert from rank 2 to rank 3
 		self.W1_1 = tf.tile(W1_1,(self.true_batch_size,1,1))
-		self.b1 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[1]]))
+		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
 
 		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
 		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
-		W2_1 = tf.reshape(self.W2,(-1,feature_sizes[1],feature_sizes[2])) # Convert from rank 2 to rank 3
+		W2_1 = tf.reshape(self.W2,(-1,self.feature_sizes[1],self.feature_sizes[2])) # Convert from rank 2 to rank 3
 		self.W2_1 = tf.tile(W2_1,(self.true_batch_size,1,1))
-		self.b2 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[2]]))
+		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
 
 		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
 		
@@ -334,7 +341,7 @@ if test_evaluation:
 	sess.run(mlp.init) # Reset parameters of net to be trained
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_,l = sess.run([merged, mlp.opt_net_train_step,mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		summary,_,l = sess.run([merged, mlp.opt_net_train_step, mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		#print l
 		opt_net_writer.add_summary(summary,i)
 	
