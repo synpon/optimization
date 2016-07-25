@@ -11,7 +11,7 @@ m = 10 # Number of dimensions
 n = 1000 # Training set size, number of points
 
 # Not probabilities so normalization is not necessary
-gaussian_weights = tf.Variable(tf.random_uniform(shape=(num_gaussians,)))
+gaussian_weights = tf.Variable(tf.random_uniform(shape=(num_gaussians,1)))
 
 mean_vectors = tf.Variable(tf.random_uniform(shape=(num_gaussians,m,1),dtype=tf.float32)) # Each mean vector is a row vector
 
