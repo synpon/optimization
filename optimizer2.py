@@ -31,7 +31,13 @@ num_gaussians = 50 # Number of Gaussians
 m = 5 # Number of dimensions
 n = 5000 # Training set size, number of points
 cov_range = [0,1]
+cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
+#num_landscapes = 1
+
+# Random noise is computed each time the point is processed while training the opt net
+#loss_noise = False
+#loss_noise_size = 
 
 
 def scale_grads(input):
@@ -89,8 +95,10 @@ class MLP:
 		self.x = tf.placeholder(tf.float32, [None, 784])
 		self.y_ = tf.placeholder(tf.float32, [None, 10])
 		
-		self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
-		self.b = tf.Variable(tf.constant(0.1, shape=[10]))
+		with tf.variable_scope("mlp"):
+			self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
+			self.b = tf.Variable(tf.constant(0.1, shape=[10]))
+			
 		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))
@@ -103,7 +111,7 @@ class MLP:
 		adam_optimizer = tf.train.AdamOptimizer()
 		
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
-		grad_var_pairs = [i for i in grad_var_pairs if i[0] is not None] ### Fix properly
+		grad_var_pairs = [i for i in grad_var_pairs if 'mlp/' in i[1].name]
 		grads,vars = zip(*grad_var_pairs)
 		grads = [tf.reshape(i,(-1,1)) for i in grads]
 		
@@ -112,12 +120,7 @@ class MLP:
 			
 		self.grads = tf.concat(0,grads)
 		
-		### 7 trainable variables - should be 2
-		### 	points and the 4 opt net variables
-		#print tf.trainable_variables()
-		#print [i.get_shape() for i in tf.trainable_variables()]
-		#print "---"
-		self.trainable_variables = tf.trainable_variables()[4:] ### fix properly
+		self.trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
@@ -142,11 +145,17 @@ class MLP:
 		total = 0
 		ret = []
 
+		### Use in the style of the inbuilt optimizers
+		### Transfer to a function in OptNet
 		for i,v in enumerate(self.trainable_variables):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
 			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
+			
+			#if not grad_clip_value is None:
+			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
+			
 			ret.append(v.assign_add(var_grads))
 			size += total
 		self.var_grads = input
@@ -162,13 +171,13 @@ class MLP:
 class OptNet:
 	### Put train and test versions in separate functions
 	def __init__(self):
-		self.epochs = 4
+		self.epochs = 1#4
 		self.batch_size = 32
-		self.feature_sizes = [1,4,1]
+		self.feature_sizes = [seq_length,4,1]
 		assert self.feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
-			self.feature_sizes[0] = 2
+			self.feature_sizes[0] *= 2
 
 		# Define architecture
 		# Feed-forward
@@ -197,9 +206,6 @@ class OptNet:
 
 		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
 		
-		# Apply gradients to the parameters in the train net.
-		#update_params(net,h) ###
-
 		points = self.input_points + h
 		new_losses = gmm_loss(points, self.mean_vectors, self.inv_cov_matrices, self.gaussian_weights, self.true_batch_size)
 		
@@ -209,51 +215,49 @@ class OptNet:
 		self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 		self.init = tf.initialize_all_variables()
-		
-	def update_params(net,h):
-		### Use in the style of the inbuilt optimizers
-		total = 0
-		
-		for i,v in enumerate(net.trainable_variables):
-			size = np.prod(list(v.get_shape()))
-			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
-			var_grads = tf.reshape(var_grads,v.get_shape())
-			
-			if not grad_clip_value is None:
-				var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
 
-			v.assign_add(var_grads)
-			size += total
 
 ##### Generate training data #####
 # Generate n points and their losses from one landscape
 # Creating a sufficient training dataset would require this to be run multiple times
 # Not probabilities so normalization is not necessary
-### To do: Generate points from multiple landscapes
 
-gaussian_weights = tf.random_uniform(shape=(num_gaussians,1))
-mean_vectors = tf.random_uniform(shape=(num_gaussians,m,1), minval=0, maxval=1, dtype=tf.float32) # Each mean vector is a row vector
+with tf.variable_scope("gmm"):
+	gaussian_weights = tf.random_uniform(shape=(num_gaussians,1))
+	mean_vectors = tf.random_uniform(shape=(num_gaussians,m,1), minval=0, maxval=1, dtype=tf.float32) # Each mean vector is a row vector
 
-# Covariance matrices must be positive-definite
-Q = tf.random_uniform(shape=(num_gaussians,m,m), minval=cov_range[0], maxval=cov_range[1])
-Q_T = tf.transpose(Q, perm=[0,2,1])
+	# Covariance matrices must be positive-definite
+	Q = tf.random_uniform(shape=(num_gaussians,m,m), minval=cov_range[0], maxval=cov_range[1])
+	Q_T = tf.transpose(Q, perm=[0,2,1])
 
-D = [tf.abs(tf.random_uniform(shape=(m,), minval=cov_range[0], maxval=cov_range[1])) for i in range(num_gaussians)]
-D = [tf.diag(i) for i in D]
-D = tf.pack(D) # num_gaussians,m,m
+	D = [tf.abs(tf.random_uniform(shape=(m,), minval=cov_range[0], maxval=cov_range[1])) for i in range(num_gaussians)]
+	D = [tf.diag(i) for i in D]
+	D = tf.pack(D) # num_gaussians,m,m
 
-cov_matrices = tf.batch_matmul(tf.batch_matmul(Q_T,D),Q) # num_gaussians,m,m
-cov_matrices = tf.pow(cov_matrices,0.33)/m # re-scale
-inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
+	cov_matrices = tf.batch_matmul(tf.batch_matmul(Q_T,D),Q) # num_gaussians,m,m
+	cov_matrices = tf.pow(cov_matrices,0.33)/m # re-scale
+	inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
 
-### rescale cov_matrices to roughly follow the desired random uniform distribution?
+	### rescale cov_matrices to roughly follow the desired random uniform distribution?
 
-points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
-losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
+	points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
+	losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
 
-opt = tf.train.GradientDescentOptimizer(0.5) # Only used to compute gradients, not optimize
-grads = opt.compute_gradients(losses)[0][0]
+	opt = tf.train.AdamOptimizer() # Used for initial generation of sequences and to compute gradients
+	grads = opt.compute_gradients(losses)[0][0]
+
+
+#class optimize_seq_points:
+#	with tf.variable_scope("seq"):
+#		points = tf.Variable(tf.placeholder(tf.float32, [n,m,1]))
+#		smean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
+#		inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
+#		gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
+#		losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
+		
+#		opt = tf.train.AdamOptimizer()
+#		update_step = opt.minimize(losses)
+	
 
 init = tf.initialize_all_variables()
 
@@ -263,7 +267,13 @@ sess.run(init)
 print "Generating training data..."
 all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
 [train_points, train_losses, train_grads, train_mean_vectors, train_inv_cov_matrices, train_gaussian_weights] = all_train_data
+	
 train_losses = np.transpose(train_losses)
+
+##### Generate sequences #####
+# -1 because the first item in the sequence is already known
+#for i in range(seq_length - 1):
+
 
 ##### Train opt net #####
 opt_net = OptNet()
