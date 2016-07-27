@@ -107,6 +107,7 @@ class MLP:
 		self.loss = tf.reduce_mean(-tf.reduce_sum(self.y_ * tf.log(y), reduction_indices=[1])) # Cross-entropy
 		tf.scalar_summary('loss', self.loss)
 
+		### Make these global?
 		sgd_optimizer = tf.train.GradientDescentOptimizer(0.5)
 		adam_optimizer = tf.train.AdamOptimizer()
 		
@@ -129,37 +130,11 @@ class MLP:
 	
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
-		input = scale_grads(input)
 
-		### Share code with opt net - activations functions could become different
-		# Apply gradient update from the opt-net		
-		W1_1 = tf.reshape(opt_net.W1,(-1,opt_net.feature_sizes[0],opt_net.feature_sizes[1])) # Convert from rank 2 to rank 3
-		W1_1 = tf.tile(W1_1,(1,1,1))
-		h = tf.nn.relu(tf.batch_matmul(input,W1_1) + opt_net.b1)
-
-		W2_1 = tf.reshape(opt_net.W2,(-1,opt_net.feature_sizes[1],opt_net.feature_sizes[2])) # Convert from rank 2 to rank 3
-		W2_1 = tf.tile(W2_1,(1,1,1))
-		h = tf.nn.relu(tf.batch_matmul(h,W2_1) + opt_net.b2) # Gradients
+		h = opt_net.compute_updates(input,self.batch_size)
 		
-		# Apply gradients to the parameters in the train net.
-		total = 0
-		ret = []
-
-		### Use in the style of the inbuilt optimizers
-		### Transfer to a function in OptNet
-		for i,v in enumerate(self.trainable_variables):
-			size = np.prod(list(v.get_shape()))
-			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
-			var_grads = tf.reshape(var_grads,v.get_shape())
-			
-			#if not grad_clip_value is None:
-			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
-			
-			ret.append(v.assign_add(var_grads))
-			size += total
-		self.var_grads = input
-		self.opt_net_train_step = control_flow_ops.group(*ret)		
+		# Apply updates to the parameters in the train net.
+		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, h)
 		
 	def fc_layer(input, size, act=tf.nn.relu):
 		W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[size[0],size[1]]))
@@ -171,7 +146,7 @@ class MLP:
 class OptNet:
 	### Put train and test versions in separate functions
 	def __init__(self):
-		self.epochs = 1#4
+		self.epochs = 4
 		self.batch_size = 32
 		self.feature_sizes = [seq_length,4,1]
 		assert self.feature_sizes[-1] == 1
@@ -190,21 +165,12 @@ class OptNet:
 		self.gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
 		self.true_batch_size = tf.placeholder(tf.int32)
 		
-		x = scale_grads(self.x_grads)
-
 		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[self.feature_sizes[0],self.feature_sizes[1]]))
-		W1_1 = tf.reshape(self.W1,(-1,self.feature_sizes[0],self.feature_sizes[1])) # Convert from rank 2 to rank 3
-		self.W1_1 = tf.tile(W1_1,(self.true_batch_size,1,1))
+		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[self.feature_sizes[1],self.feature_sizes[2]]))
 		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
-
-		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
-
-		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
-		W2_1 = tf.reshape(self.W2,(-1,self.feature_sizes[1],self.feature_sizes[2])) # Convert from rank 2 to rank 3
-		self.W2_1 = tf.tile(W2_1,(self.true_batch_size,1,1))
 		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
-
-		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
+		
+		h = self.compute_updates(self.x_grads, self.true_batch_size)
 		
 		points = self.input_points + h
 		new_losses = gmm_loss(points, self.mean_vectors, self.inv_cov_matrices, self.gaussian_weights, self.true_batch_size)
@@ -215,6 +181,40 @@ class OptNet:
 		self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 		self.init = tf.initialize_all_variables()
+		
+		
+	def compute_updates(self, input, batch_size):
+		x = scale_grads(input)
+
+		W1_1 = tf.reshape(self.W1,(-1,self.feature_sizes[0],self.feature_sizes[1])) # Convert from rank 2 to rank 3
+		self.W1_1 = tf.tile(W1_1,(batch_size,1,1))
+
+		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
+
+		W2_1 = tf.reshape(self.W2,(-1,self.feature_sizes[1],self.feature_sizes[2])) # Convert from rank 2 to rank 3
+		self.W2_1 = tf.tile(W2_1,(batch_size,1,1))
+
+		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
+		return h
+	
+	
+	def update_params(self, vars, h):
+		total = 0
+		ret = []
+
+		for i,v in enumerate(vars):
+			size = np.prod(list(v.get_shape()))
+			size = tf.to_int32(size)
+			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
+			var_grads = tf.reshape(var_grads,v.get_shape())
+			
+			#if not grad_clip_value is None:
+			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
+			
+			ret.append(v.assign_add(var_grads))
+			size += total
+			
+		return control_flow_ops.group(*ret)
 
 
 ##### Generate training data #####
@@ -330,7 +330,7 @@ if test_evaluation:
 	mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 	
 	# SGD
-	sess.run(mlp.init)
+	sess.run(mlp.init) # Reset parameters of net to be trained
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
@@ -339,7 +339,7 @@ if test_evaluation:
 	sgd_writer.close()
 	
 	# Adam
-	sess.run(mlp.init)
+	sess.run(mlp.init) # Reset parameters of net to be trained
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.adam_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
@@ -351,8 +351,7 @@ if test_evaluation:
 	sess.run(mlp.init) # Reset parameters of net to be trained
 	for i in range(mlp.batches):
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_,l = sess.run([merged, mlp.opt_net_train_step, mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-		#print l
+		summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		opt_net_writer.add_summary(summary,i)
 	
 	opt_net_writer.close()
