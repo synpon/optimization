@@ -29,14 +29,7 @@ def rnn(cell, inputs, initial_state,
 		if varscope.caching_device is None:
 			varscope.set_caching_device(lambda op: op.device)
 
-		if inputs[0].get_shape().ndims != 1:
-			(fixed_batch_size, params_size, input_size) = inputs[0].get_shape().with_rank(3)
-			if input_size.value is None:
-				raise ValueError(
-						"Input size (second dimension of inputs[0]) must be accessible via "
-						"shape inference, but saw value None.")
-		else:
-			fixed_batch_size = inputs[0].get_shape().with_rank_at_least(1)[0]
+		(fixed_batch_size, params_size, input_size) = inputs[0].get_shape().with_rank(3)
 
 		if fixed_batch_size.value:
 			batch_size = fixed_batch_size.value
@@ -44,15 +37,15 @@ def rnn(cell, inputs, initial_state,
 			batch_size = tf.shape(inputs[0])[0]
 
 		state = initial_state
-
 		sequence_length = tf.to_int32(sequence_length)
 
-		#zero_output = tf.zeros(
-		#		tf.pack([batch_size, cell.output_size]), inputs[0].dtype) ###
-		#zero_output.set_shape(
-		#		tensor_shape.TensorShape([fixed_batch_size.value, cell.output_size])) ###
-		zero_output = tf.zeros([batch_size, state.get_shape()[1], cell.output_size])
-		#print zero_output
+		zero_output = tf.zeros(
+				tf.pack([batch_size, params_size, cell.output_size]), inputs[0].dtype)
+		zero_output.set_shape(
+				tensor_shape.TensorShape([fixed_batch_size.value, params_size, cell.output_size]))
+				
+		min_sequence_length = tf.reduce_min(sequence_length)
+		max_sequence_length = tf.reduce_max(sequence_length)
 
 		for time, input_ in enumerate(inputs):
 			if time > 0:
@@ -63,8 +56,8 @@ def rnn(cell, inputs, initial_state,
 			(output, state) = _rnn_step(
 					time=time,
 					sequence_length=sequence_length,
-					min_sequence_length=sequence_length,
-					max_sequence_length=sequence_length,
+					min_sequence_length=min_sequence_length,
+					max_sequence_length=max_sequence_length,
 					zero_output=zero_output,
 					state=state,
 					call_cell=call_cell,
@@ -83,16 +76,16 @@ def _rnn_step(time, sequence_length, min_sequence_length, max_sequence_length,
 	state = list(_unpacked_state(state)) if state_is_tuple else [state]
 	state_shape = [s.get_shape() for s in state]
 
-	def _copy_some_through(new_output, new_state): ###
+	def _copy_some_through(new_output, new_state):
 		# Use broadcasting select to determine which values should get
 		# the previous state & zero output, and which values should get
 		# a calculated state & output.
-		#copy_cond = (time >= sequence_length)
+		copy_cond = (time >= sequence_length)
 
-		#return ([tf.select(copy_cond, zero_output, new_output)]
-		#				+ [tf.select(copy_cond, old_s, new_s)
-		#					 for (old_s, new_s) in zip(state, new_state)])
-		return ([new_output] + [new_s for (old_s, new_s) in zip(state, new_state)])
+		return ([tf.select(copy_cond, zero_output, new_output)]
+						+ [tf.select(copy_cond, old_s, new_s)
+							 for (old_s, new_s) in zip(state, new_state)])
+							 
 
 	def _maybe_copy_some_through():
 		# Run RNN step. Pass through either no or some past state.
@@ -105,11 +98,10 @@ def _rnn_step(time, sequence_length, min_sequence_length, max_sequence_length,
 					"Input and output state tuple lengths do not match: %d vs. %d"
 					% (len(state), len(new_state)))
 
-		return tf.cond(
-				# if t < min_seq_len: calculate and return everything
-				time < min_sequence_length, lambda: [new_output] + new_state,
-				# else copy some of it through
-				lambda: _copy_some_through(new_output, new_state))
+		# if t < min_seq_len: calculate and return everything
+		# else copy some of it through
+		return tf.cond(time < min_sequence_length, lambda: [new_output] + new_state,
+						lambda: _copy_some_through(new_output, new_state))
 	
 	if skip_conditionals:
 		# Instead of using conditionals, perform the selective copy at all time
@@ -124,7 +116,7 @@ def _rnn_step(time, sequence_length, min_sequence_length, max_sequence_length,
 					"Input and output state tuple lengths do not match: %d vs. %d"
 					% (len(state), len(new_state)))
 
-		final_output_and_state = _copy_some_through(new_output, new_state) ###
+		final_output_and_state = _copy_some_through(new_output, new_state)
 	else:
 		empty_update = lambda: [zero_output] + list(state)
 

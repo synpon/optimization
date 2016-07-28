@@ -121,7 +121,7 @@ class GRUCell(RNNCell):
 		with tf.variable_scope(scope or type(self).__name__):	# "GRUCell"
 			with tf.variable_scope("Gates"): 	# Reset gate and update gate.
 				# We start with bias of 1.0 to not reset and not update.
-				r, u = tf.split(1, 2, _linear([inputs, state],2 * self._num_units, True, 1.0))
+				r, u = tf.split(2, 2, _linear([inputs, state],2 * self._num_units, True, 1.0))
 				r, u = tf.nn.sigmoid(r), tf.nn.sigmoid(u)
 			with tf.variable_scope("Candidate"):
 				c = self._activation(_linear([inputs, r * state], self._num_units, True))
@@ -140,13 +140,11 @@ class BasicLSTMCell(RNNCell):
 	def __init__(self, num_units, forget_bias=1.0, activation=tf.nn.tanh):
 		self._num_units = num_units
 		self._forget_bias = forget_bias
-		self._state_is_tuple = True
 		self._activation = activation
 
 	@property
 	def state_size(self):
-		return (LSTMStateTuple(self._num_units, self._num_units)
-						if self._state_is_tuple else 2 * self._num_units)
+		return (LSTMStateTuple(self._num_units, self._num_units))
 
 	@property
 	def output_size(self):
@@ -155,23 +153,18 @@ class BasicLSTMCell(RNNCell):
 	def __call__(self, inputs, state, scope=None):
 		with tf.variable_scope(scope or type(self).__name__):	# "BasicLSTMCell"
 			# Parameters of gates are concatenated into one multiply for efficiency.
-			if self._state_is_tuple:
-				c, h = state
-			else:
-				c, h = tf.split(1, 2, state)
+			c, h = state
+			
 			concat = _linear([inputs, h], 4 * self._num_units, True)
 
 			# i = input_gate, j = new_input, f = forget_gate, o = output_gate
-			i, j, f, o = tf.split(1, 4, concat)
+			i, j, f, o = tf.split(2, 4, concat)
 
 			new_c = (c * tf.nn.sigmoid(f + self._forget_bias) + tf.nn.sigmoid(i) *
 							 self._activation(j))
 			new_h = self._activation(new_c) * tf.nn.sigmoid(o)
 
-			if self._state_is_tuple:
-				new_state = LSTMStateTuple(new_c, new_h)
-			else:
-				new_state = tf.concat(1, [new_c, new_h])
+			new_state = LSTMStateTuple(new_c, new_h)
 			return new_h, new_state
 
 
