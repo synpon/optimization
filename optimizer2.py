@@ -37,7 +37,7 @@ weight_gaussians = False
 
 # Random noise is computed each time the point is processed while training the opt net
 #loss_noise = False
-#loss_noise_size = 
+#loss_noise_size =  # Determines the size of the standard deviation. The mean is zero.
 
 
 def scale_grads(input):
@@ -165,8 +165,8 @@ class OptNet:
 		self.gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
 		self.true_batch_size = tf.placeholder(tf.int32)
 		
-		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[self.feature_sizes[0],self.feature_sizes[1]]))
-		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[self.feature_sizes[1],self.feature_sizes[2]]))
+		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[0],self.feature_sizes[1]]))
+		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[1],self.feature_sizes[2]]))
 		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
 		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
 		
@@ -186,14 +186,10 @@ class OptNet:
 	def compute_updates(self, input, batch_size):
 		x = scale_grads(input)
 
-		W1_1 = tf.reshape(self.W1,(-1,self.feature_sizes[0],self.feature_sizes[1])) # Convert from rank 2 to rank 3
-		self.W1_1 = tf.tile(W1_1,(batch_size,1,1))
-
+		self.W1_1 = tf.tile(self.W1,(batch_size,1,1))
 		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
-		W2_1 = tf.reshape(self.W2,(-1,self.feature_sizes[1],self.feature_sizes[2])) # Convert from rank 2 to rank 3
-		self.W2_1 = tf.tile(W2_1,(batch_size,1,1))
-
+		self.W2_1 = tf.tile(self.W2,(batch_size,1,1))
 		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
 		return h
 	
@@ -247,7 +243,7 @@ with tf.variable_scope("gmm"):
 	grads = opt.compute_gradients(losses)[0][0]
 
 
-#class optimize_seq_points:
+#def optimize_seq_points():
 #	with tf.variable_scope("seq"):
 #		points = tf.Variable(tf.placeholder(tf.float32, [n,m,1]))
 #		smean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
@@ -271,10 +267,17 @@ all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices
 train_losses = np.transpose(train_losses)
 
 ##### Generate sequences #####
-# -1 because the first item in the sequence is already known
-#for i in range(seq_length - 1):
-
-
+# seq_length - 1 because the first item in the sequence is already known
+for i in range(seq_length - 1):
+	tmp_points,tmp_losses,tmp_grads,_ = sess.run([points, losses, grads, update_step], 
+								feed_dict={	opt_net.input_points: points_batch,
+											opt_net.y_losses: losses_batch,
+											opt_net.x_grads: grads_batch,
+											opt_net.mean_vectors: train_mean_vectors,
+											opt_net.inv_cov_matrices: train_inv_cov_matrices,
+											opt_net.gaussian_weights: train_gaussian_weights,
+											opt_net.true_batch_size: true_batch_size})
+							
 ##### Train opt net #####
 opt_net = OptNet()
 sess.run(opt_net.init)
