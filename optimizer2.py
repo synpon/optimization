@@ -21,25 +21,25 @@ test_evaluation = True
 #rnn = False # feed-forward otherwise
 #rnn_num_layers = 1
 #rnn_size = 5
-seq_length = 1
+max_seq_length = 1
 grad_clip_value = None # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
 grad_scaling_method = grad_scaling_methods[1]
-grad_scaling_factor = 0.1
+grad_scaling_factor = 0.2
 p = 10.0
 
-num_gaussians = 250 # Number of Gaussians
-m = 15 # Number of dimensions
-n = 1000 # Training set size, number of points
-cov_range = [0,12]
+num_gaussians = 50 # Number of Gaussians
+m = 5 # Number of dimensions
+n = 10000 # Training set size, number of points
+cov_range = [0,4]
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
-num_landscapes = 5
+num_landscapes = 1
 
 # Random noise is computed each time the point is processed while training the opt net
-#loss_noise = False
-#loss_noise_size =  # Determines the size of the standard deviation. The mean is zero.
+loss_noise = False
+loss_noise_size = 0.1 # Determines the size of the standard deviation. The mean is zero.
 
 
 def scale_grads(input):
@@ -90,7 +90,7 @@ def gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, num_point
 	
 class MLP:
 	def __init__(self):
-		self.batch_size = 1 # 128
+		self.batch_size = 1 # 32
 		self.batches = 1000
 
 		# Define architecture
@@ -102,6 +102,7 @@ class MLP:
 			self.b = tf.Variable(tf.constant(0.1, shape=[10]))
 			
 		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
+		y = tf.clip_by_value(y, 1e-10, 1.0) # Prevent log(0) in the cross-entropy calculation
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))
 		self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -146,11 +147,10 @@ class MLP:
 
 		
 class OptNet:
-	### Put train and test versions in separate functions
 	def __init__(self):
 		self.epochs = 4
 		self.batch_size = 32
-		self.feature_sizes = [seq_length,4,1]
+		self.feature_sizes = [max_seq_length,2,1] ###
 		assert self.feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
@@ -174,8 +174,8 @@ class OptNet:
 		
 		h = self.compute_updates(self.x_grads, self.true_batch_size)
 		
-		points = self.input_points + h
-		new_losses = gmm_loss(points, self.mean_vectors, self.inv_cov_matrices, self.gaussian_weights, self.true_batch_size)
+		self.points = self.input_points + h
+		new_losses = gmm_loss(self.points, self.mean_vectors, self.inv_cov_matrices, self.gaussian_weights, self.true_batch_size)
 		
 		# Change in loss as a result of the parameter update (ideally negative)
 		self.loss = tf.reduce_mean(new_losses - self.y_losses) # Average over the batch
@@ -237,29 +237,13 @@ with tf.variable_scope("gmm"):
 	cov_matrices = tf.pow(cov_matrices,0.33)/m # re-scale
 	inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
 
-	### rescale cov_matrices to roughly follow the desired random uniform distribution?
-
 	points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
 	losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
 
 	opt = tf.train.AdamOptimizer() # Used for initial generation of sequences and to compute gradients
 	grads = opt.compute_gradients(losses)[0][0]
 
-
-#class SequenceOptimizer:
-#	def __init__(self):
-#		self.points = tf.Variable(tf.placeholder(tf.float32, [n,m,1]))
-#		self.mean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
-#		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
-#		self.gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
-#		losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
-		
-#		opt = tf.train.AdamOptimizer()
-#		self.update_step = opt.minimize(losses)
-		
-#		#self.init = tf.initialize_all_variables()
 	
-
 init = tf.initialize_all_variables()
 
 sess = tf.Session()
@@ -280,33 +264,22 @@ for i in range(num_landscapes):
 	[train_points_i, train_losses_i, train_grads_i, train_mean_vectors_i, train_inv_cov_matrices_i, train_gaussian_weights_i] = all_train_data
 	train_losses_i = np.transpose(train_losses_i)
 	print "Percentage of zeros: ", np.mean(np.equal(train_grads_i,np.zeros_like(train_grads_i)))
+	
 	train_points.append(train_points_i)
 	train_losses.append(train_losses_i)
 	train_grads.append(train_grads_i)
 	train_mean_vectors.append(train_mean_vectors_i)
 	train_inv_cov_matrices.append(train_inv_cov_matrices_i)
 	train_gaussian_weights.append(train_gaussian_weights_i)
-	
+
 print "Took %ds\n" % (time.time() - start)
 
-#seq_opt = SequenceOptimizer()
-
-##### Generate sequences #####
-# seq_length - 1 because the first item in the sequence is already known
-#for i in range(seq_length - 1):
-#	tmp_points,tmp_losses,tmp_grads,_ = sess.run([points, losses, grads, update_step], 
-#								feed_dict={	seq_opt.input_points: points_batch,
-#											seq_opt.mean_vectors: train_mean_vectors,
-#											seq_opt.inv_cov_matrices: train_inv_cov_matrices,
-#											seq_opt.gaussian_weights: train_gaussian_weights})
-							
 ##### Train opt net #####
 opt_net = OptNet()
 sess.run(opt_net.init)
 
 # One epoch is a pass through n points, not the total n*num_landscapes
 for epoch in range(opt_net.epochs):
-	### Why are some epochs exactly 0 loss?
 	print "Epoch ", epoch
 	start = time.time()
 	perm = np.random.permutation(range(n))
@@ -323,7 +296,12 @@ for epoch in range(opt_net.epochs):
 		grads_batch = train_grads[L][index,:,:]
 		true_batch_size = len(index)
 		
-		_,loss_ = sess.run([opt_net.train_step,opt_net.loss], 
+		if loss_noise:
+			std_dev = max(1e-30,loss_noise_size*np.mean(np.abs(grads_batch)))
+			grads_batch += np.random.normal(0,std_dev,size=grads_batch.shape)
+		
+		#for j in range(max_seq_length): ### return grads too
+		_, loss_, points_ = sess.run([opt_net.train_step, opt_net.loss, opt_net.points], 
 							feed_dict={	opt_net.input_points: points_batch,
 										opt_net.y_losses: losses_batch,
 										opt_net.x_grads: grads_batch,
@@ -382,11 +360,12 @@ if test_evaluation:
 	adam_writer.close()
 	
 	# Opt net
-	sess.run(mlp.init) # Reset parameters of net to be trained
-	for i in range(mlp.batches):
-		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-		opt_net_writer.add_summary(summary,i)
-	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
-	print "Opt net accuracy: %f" % accuracy
+	for i in range(5):
+		sess.run(mlp.init) # Reset parameters of net to be trained
+		for i in range(mlp.batches):
+			batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+			summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+			opt_net_writer.add_summary(summary,i)
+		accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+		print "Opt net accuracy: %f" % accuracy
 	opt_net_writer.close()

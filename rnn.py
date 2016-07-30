@@ -148,15 +148,15 @@ def _reverse_seq(input_seq, lengths):
 		input_.set_shape(input_shape)
 
 	# Join into (time, batch_size, depth)
-	s_joined = array_ops.pack(input_seq)
+	s_joined = tf.pack(input_seq)
 
 	if lengths is not None:
 		lengths = tf.to_int64(lengths)
 
 	# Reverse along dimension 0
-	s_reversed = array_ops.reverse_sequence(s_joined, lengths, 0, 1)
+	s_reversed = tf.reverse_sequence(s_joined, lengths, 0, 1)
 	# Split again into list
-	result = array_ops.unpack(s_reversed)
+	result = tf.unpack(s_reversed)
 	for r in result:
 		r.set_shape(input_shape)
 	return result
