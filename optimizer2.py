@@ -15,7 +15,7 @@ tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
 http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 """
 
-summary_freq = 100
+summary_freq = 10
 summaries_dir = '/tmp/logs'
 test_evaluation = True
 #rnn = False # feed-forward otherwise
@@ -29,10 +29,10 @@ grad_scaling_method = grad_scaling_methods[1]
 grad_scaling_factor = 0.1
 p = 10.0
 
-num_gaussians = 50 # Number of Gaussians
-m = 5 # Number of dimensions
-n = 5000 # Training set size, number of points
-cov_range = [0,1]
+num_gaussians = 250 # Number of Gaussians
+m = 15 # Number of dimensions
+n = 1000 # Training set size, number of points
+cov_range = [0,12]
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 num_landscapes = 5
@@ -187,7 +187,7 @@ class OptNet:
 		
 	def compute_updates(self, input, batch_size):
 		x = scale_grads(input)
-
+		### elu causes nan loss
 		self.W1_1 = tf.tile(self.W1,(batch_size,1,1))
 		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
@@ -219,6 +219,7 @@ class OptNet:
 # Generate n points and their losses from one landscape
 # Creating a sufficient training dataset would require this to be run multiple times
 # Not probabilities so normalization is not necessary
+# The gradient equals zero if and only if the loss equals zero
 
 with tf.variable_scope("gmm"):
 	gaussian_weights = tf.random_uniform(shape=(num_gaussians,1))
@@ -278,7 +279,7 @@ for i in range(num_landscapes):
 	all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
 	[train_points_i, train_losses_i, train_grads_i, train_mean_vectors_i, train_inv_cov_matrices_i, train_gaussian_weights_i] = all_train_data
 	train_losses_i = np.transpose(train_losses_i)
-	
+	print "Percentage of zeros: ", np.mean(np.equal(train_grads_i,np.zeros_like(train_grads_i)))
 	train_points.append(train_points_i)
 	train_losses.append(train_losses_i)
 	train_grads.append(train_grads_i)
@@ -305,6 +306,7 @@ sess.run(opt_net.init)
 
 # One epoch is a pass through n points, not the total n*num_landscapes
 for epoch in range(opt_net.epochs):
+	### Why are some epochs exactly 0 loss?
 	print "Epoch ", epoch
 	start = time.time()
 	perm = np.random.permutation(range(n))
@@ -329,12 +331,12 @@ for epoch in range(opt_net.epochs):
 										opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
 										opt_net.gaussian_weights: train_gaussian_weights[L],
 										opt_net.true_batch_size: true_batch_size})
-
+										
 		#if i % summary_freq == 0:
-		#print loss_, i										
+		#	print loss_, i										
 		opt_net_losses.append(loss_)
 	
-	print np.mean(opt_net_losses)
+	print "Loss: %g" % np.mean(opt_net_losses)
 	print "Took %ds\n" % (time.time() - start)
 	
 mlp = MLP()
@@ -365,7 +367,8 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		sgd_writer.add_summary(summary,i)
-		
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "SGD accuracy: %f" % accuracy
 	sgd_writer.close()
 	
 	# Adam
@@ -374,7 +377,8 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.adam_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		adam_writer.add_summary(summary,i)
-		
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "Adam accuracy: %f" % accuracy
 	adam_writer.close()
 	
 	# Opt net
@@ -383,5 +387,6 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		opt_net_writer.add_summary(summary,i)
-	
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "Opt net accuracy: %f" % accuracy
 	opt_net_writer.close()
