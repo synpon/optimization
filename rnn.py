@@ -31,10 +31,7 @@ def rnn(cell, inputs, initial_state,
 
 		(fixed_batch_size, params_size, input_size) = inputs[0].get_shape().with_rank(3)
 
-		if fixed_batch_size.value:
-			batch_size = fixed_batch_size.value
-		else:
-			batch_size = tf.shape(inputs[0])[0]
+		batch_size = fixed_batch_size.value
 
 		state = initial_state
 		sequence_length = tf.to_int32(sequence_length)

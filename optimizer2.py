@@ -3,6 +3,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.ops import control_flow_ops
 import tensorflow as tf
 import numpy as np
+import time
+import random
 
 """
 Input: Gradients
@@ -33,7 +35,7 @@ n = 5000 # Training set size, number of points
 cov_range = [0,1]
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
-#num_landscapes = 1
+num_landscapes = 5
 
 # Random noise is computed each time the point is processed while training the opt net
 #loss_noise = False
@@ -243,16 +245,18 @@ with tf.variable_scope("gmm"):
 	grads = opt.compute_gradients(losses)[0][0]
 
 
-#def optimize_seq_points():
-#	with tf.variable_scope("seq"):
-#		points = tf.Variable(tf.placeholder(tf.float32, [n,m,1]))
-#		smean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
-#		inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
-#		gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
+#class SequenceOptimizer:
+#	def __init__(self):
+#		self.points = tf.Variable(tf.placeholder(tf.float32, [n,m,1]))
+#		self.mean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
+#		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
+#		self.gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
 #		losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
 		
 #		opt = tf.train.AdamOptimizer()
-#		update_step = opt.minimize(losses)
+#		self.update_step = opt.minimize(losses)
+		
+#		#self.init = tf.initialize_all_variables()
 	
 
 init = tf.initialize_all_variables()
@@ -261,47 +265,69 @@ sess = tf.Session()
 sess.run(init)
 
 print "Generating training data..."
-all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
-[train_points, train_losses, train_grads, train_mean_vectors, train_inv_cov_matrices, train_gaussian_weights] = all_train_data
+start = time.time()
+
+train_points = []
+train_losses = []
+train_grads = []
+train_mean_vectors = []
+train_inv_cov_matrices = []
+train_gaussian_weights = []
+
+for i in range(num_landscapes):
+	all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
+	[train_points_i, train_losses_i, train_grads_i, train_mean_vectors_i, train_inv_cov_matrices_i, train_gaussian_weights_i] = all_train_data
+	train_losses_i = np.transpose(train_losses_i)
 	
-train_losses = np.transpose(train_losses)
+	train_points.append(train_points_i)
+	train_losses.append(train_losses_i)
+	train_grads.append(train_grads_i)
+	train_mean_vectors.append(train_mean_vectors_i)
+	train_inv_cov_matrices.append(train_inv_cov_matrices_i)
+	train_gaussian_weights.append(train_gaussian_weights_i)
+	
+print "Took %ds\n" % (time.time() - start)
+
+#seq_opt = SequenceOptimizer()
 
 ##### Generate sequences #####
 # seq_length - 1 because the first item in the sequence is already known
-for i in range(seq_length - 1):
-	tmp_points,tmp_losses,tmp_grads,_ = sess.run([points, losses, grads, update_step], 
-								feed_dict={	opt_net.input_points: points_batch,
-											opt_net.y_losses: losses_batch,
-											opt_net.x_grads: grads_batch,
-											opt_net.mean_vectors: train_mean_vectors,
-											opt_net.inv_cov_matrices: train_inv_cov_matrices,
-											opt_net.gaussian_weights: train_gaussian_weights,
-											opt_net.true_batch_size: true_batch_size})
+#for i in range(seq_length - 1):
+#	tmp_points,tmp_losses,tmp_grads,_ = sess.run([points, losses, grads, update_step], 
+#								feed_dict={	seq_opt.input_points: points_batch,
+#											seq_opt.mean_vectors: train_mean_vectors,
+#											seq_opt.inv_cov_matrices: train_inv_cov_matrices,
+#											seq_opt.gaussian_weights: train_gaussian_weights})
 							
 ##### Train opt net #####
 opt_net = OptNet()
 sess.run(opt_net.init)
 
+# One epoch is a pass through n points, not the total n*num_landscapes
 for epoch in range(opt_net.epochs):
 	print "Epoch ", epoch
-	
+	start = time.time()
 	perm = np.random.permutation(range(n))
 	opt_net_losses = []
 	
 	for i in range(n):
 		index = perm[i:i+opt_net.batch_size]
-		points_batch = train_points[index,:,:]		
-		losses_batch = train_losses[index]
-		grads_batch = train_grads[index,:,:]
+		
+		# Each batch is from one landscape
+		L = random.randint(0,num_landscapes-1) # Inclusive
+		
+		points_batch = train_points[L][index,:,:]
+		losses_batch = train_losses[L][index]
+		grads_batch = train_grads[L][index,:,:]
 		true_batch_size = len(index)
 		
 		_,loss_ = sess.run([opt_net.train_step,opt_net.loss], 
 							feed_dict={	opt_net.input_points: points_batch,
 										opt_net.y_losses: losses_batch,
 										opt_net.x_grads: grads_batch,
-										opt_net.mean_vectors: train_mean_vectors,
-										opt_net.inv_cov_matrices: train_inv_cov_matrices,
-										opt_net.gaussian_weights: train_gaussian_weights,
+										opt_net.mean_vectors: train_mean_vectors[L],
+										opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
+										opt_net.gaussian_weights: train_gaussian_weights[L],
 										opt_net.true_batch_size: true_batch_size})
 
 		#if i % summary_freq == 0:
@@ -309,7 +335,8 @@ for epoch in range(opt_net.epochs):
 		opt_net_losses.append(loss_)
 	
 	print np.mean(opt_net_losses)
-
+	print "Took %ds\n" % (time.time() - start)
+	
 mlp = MLP()
 sess.run(mlp.init)
 

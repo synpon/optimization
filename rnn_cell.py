@@ -135,7 +135,7 @@ _LSTMStateTuple = collections.namedtuple("LSTMStateTuple", ("c", "h"))
 class LSTMStateTuple(_LSTMStateTuple):
 	__slots__ = ()
 
-
+### Check that element-wise multiplication is still appropriate. Also affects GRU.
 class BasicLSTMCell(RNNCell):
 	def __init__(self, num_units, forget_bias=1.0, activation=tf.nn.tanh):
 		self._num_units = num_units

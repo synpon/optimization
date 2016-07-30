@@ -11,7 +11,7 @@ params = 10 # Not normally known during compilation
 seq_length = 5
 rnn_size = 2
 rnn_types = ['RNN','GRU','LSTM']
-rnn_type = rnn_types[2]
+rnn_type = rnn_types[0]
 
 input = []
 for i in range(seq_length):
