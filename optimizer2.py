@@ -6,6 +6,9 @@ import numpy as np
 import time
 import random
 
+import rnn_cell
+import rnn
+
 """
 Input: Gradients
 Output: Change in parameters (exp transform to reverse scaling?)
@@ -18,10 +21,13 @@ http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 summary_freq = 10
 summaries_dir = '/tmp/logs'
 test_evaluation = True
-#rnn = False # feed-forward otherwise
+
+use_rnn = True # feed-forward otherwise
+max_seq_length = 5
+if not use_rnn:
+	max_seq_length = 1 ### Should be necessary?
+rnn_size = 5
 #rnn_num_layers = 1
-#rnn_size = 5
-max_seq_length = 1
 grad_clip_value = None # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
@@ -29,10 +35,10 @@ grad_scaling_method = grad_scaling_methods[1]
 grad_scaling_factor = 0.2
 p = 10.0
 
-num_gaussians = 50 # Number of Gaussians
-m = 5 # Number of dimensions
-n = 10000 # Training set size, number of points
-cov_range = [0,4]
+num_gaussians = 250 # Number of Gaussians
+m = 10 # Number of dimensions
+n = 1000 # Training set size, number of points
+cov_range = [0,8]
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 num_landscapes = 1
@@ -146,18 +152,12 @@ class MLP:
 		return h
 
 		
-class OptNet:
+class OptNet(object):
 	def __init__(self):
 		self.epochs = 4
-		self.batch_size = 32
-		self.feature_sizes = [max_seq_length,2,1] ###
-		assert self.feature_sizes[-1] == 1
-		
-		if grad_scaling_method == 'full':
-			self.feature_sizes[0] *= 2
+		self.batch_size = 32	
 
 		# Define architecture
-		# Feed-forward
 		self.x_grads = tf.placeholder(tf.float32, [None,None,1])
 		self.y_losses = tf.placeholder(tf.float32, [None])
 		
@@ -166,11 +166,6 @@ class OptNet:
 		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
 		self.gaussian_weights = tf.placeholder(tf.float32, [num_gaussians,1])
 		self.true_batch_size = tf.placeholder(tf.int32)
-		
-		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[0],self.feature_sizes[1]]))
-		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[1],self.feature_sizes[2]]))
-		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
-		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
 		
 		h = self.compute_updates(self.x_grads, self.true_batch_size)
 		
@@ -183,19 +178,8 @@ class OptNet:
 		self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 		self.init = tf.initialize_all_variables()
-		
-		
-	def compute_updates(self, input, batch_size):
-		x = scale_grads(input)
-		### elu causes nan loss
-		self.W1_1 = tf.tile(self.W1,(batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
 
-		self.W2_1 = tf.tile(self.W2,(batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
-		return h
-	
-	
+		
 	def update_params(self, vars, h):
 		total = 0
 		ret = []
@@ -213,6 +197,50 @@ class OptNet:
 			size += total
 			
 		return control_flow_ops.group(*ret)
+		
+		
+	def compute_updates(self, input, batch_size):
+		raise NotImplementedError("Abstract method")
+
+		
+class OptNetFF(OptNet):
+	def __init__(self):
+		self.feature_sizes = [max_seq_length,2,1] ### may be variable size or even always 1 if computing step by step
+		assert self.feature_sizes[-1] == 1
+		
+		if grad_scaling_method == 'full':
+			self.feature_sizes[0] *= 2	
+	
+		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[0],self.feature_sizes[1]]))
+		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[1],self.feature_sizes[2]]))
+		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
+		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
+	
+		super(OptNetFF, self).__init__()
+
+		
+	def compute_updates(self, input, batch_size):
+		x = scale_grads(input)
+		### elu causes nan loss
+		self.W1_1 = tf.tile(self.W1,(batch_size,1,1))
+		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
+
+		self.W2_1 = tf.tile(self.W2,(batch_size,1,1))
+		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
+		return h
+		
+		
+class OptNetLSTM(OptNet):
+
+	def __init__(self):
+		self.lstm_cell = rnn_cell.BasicLSTMCell(rnn_size, forget_bias=1.0)
+		super(OptNetLSTM, self).__init__()
+		
+
+	def compute_updates(self, input, batch_size):
+		x = scale_grads(input)
+		outputs, states = rnn.rnn(self.lstm_cell, x, states, seq_length) ###
+		return outputs, states
 
 
 ##### Generate training data #####
@@ -275,7 +303,11 @@ for i in range(num_landscapes):
 print "Took %ds\n" % (time.time() - start)
 
 ##### Train opt net #####
-opt_net = OptNet()
+if use_rnn:
+	opt_net = OptNetLSTM()
+else:
+	opt_net = OptNetFF()
+	
 sess.run(opt_net.init)
 
 # One epoch is a pass through n points, not the total n*num_landscapes
@@ -300,15 +332,25 @@ for epoch in range(opt_net.epochs):
 			std_dev = max(1e-30,loss_noise_size*np.mean(np.abs(grads_batch)))
 			grads_batch += np.random.normal(0,std_dev,size=grads_batch.shape)
 		
-		#for j in range(max_seq_length): ### return grads too
-		_, loss_, points_ = sess.run([opt_net.train_step, opt_net.loss, opt_net.points], 
-							feed_dict={	opt_net.input_points: points_batch,
-										opt_net.y_losses: losses_batch,
-										opt_net.x_grads: grads_batch,
-										opt_net.mean_vectors: train_mean_vectors[L],
-										opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
-										opt_net.gaussian_weights: train_gaussian_weights[L],
-										opt_net.true_batch_size: true_batch_size})
+		if use_rnn:
+			for j in range(max_seq_length): ### return grads too
+				_, loss_, points_,grads_ = sess.run([opt_net.train_step, opt_net.loss, opt_net.grads, opt_net.points], 
+									feed_dict={	opt_net.input_points: points_batch,
+												opt_net.y_losses: losses_batch,
+												opt_net.x_grads: grads_batch,
+												opt_net.mean_vectors: train_mean_vectors[L],
+												opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
+												opt_net.gaussian_weights: train_gaussian_weights[L],
+												opt_net.true_batch_size: true_batch_size})
+		else:
+			_, loss_ = sess.run([opt_net.train_step, opt_net.loss], 
+								feed_dict={	opt_net.input_points: points_batch,
+											opt_net.y_losses: losses_batch,
+											opt_net.x_grads: grads_batch,
+											opt_net.mean_vectors: train_mean_vectors[L],
+											opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
+											opt_net.gaussian_weights: train_gaussian_weights[L],
+											opt_net.true_batch_size: true_batch_size})		
 										
 		#if i % summary_freq == 0:
 		#	print loss_, i										
