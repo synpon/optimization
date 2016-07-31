@@ -46,6 +46,7 @@ class MLP:
 		self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
 		self.b = tf.Variable(tf.constant(0.1, shape=[10]))
 		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
+		y = tf.clip_by_value(y, 1e-10, 1.0)
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))
 		self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -295,7 +296,8 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		sgd_writer.add_summary(summary,i)
-		
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "SGD accuracy: %f" % accuracy		
 	sgd_writer.close()
 	
 	# Adam
@@ -304,18 +306,21 @@ if test_evaluation:
 		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 		summary,_ = sess.run([merged, mlp.adam_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
 		adam_writer.add_summary(summary,i)
-		
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "Adam accuracy: %f" % accuracy		
 	adam_writer.close()
 	
 	# Opt net
 	sess.run(mlp.init) # Reset parameters of net to be trained
-	for i in range(mlp.batches):
-		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		### Two possible train steps here - should only be one
-		summary,_,l = sess.run([merged, mlp.opt_net_train_step, mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-		#print l
-		opt_net_writer.add_summary(summary,i)
-	
+	for i in range(5):
+		for j in range(mlp.batches):
+			batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+			### Two possible train steps here - should only be one
+			summary,_,l = sess.run([merged, mlp.opt_net_train_step, mlp.var_grads], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+			#print l
+			opt_net_writer.add_summary(summary,j)
+		accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+		print "Opt net accuracy: %f" % accuracy
 	opt_net_writer.close()
 	
 

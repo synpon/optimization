@@ -22,10 +22,8 @@ summary_freq = 10
 summaries_dir = '/tmp/logs'
 test_evaluation = True
 
-use_rnn = True # feed-forward otherwise
+use_rnn = False # feed-forward otherwise
 max_seq_length = 5
-if not use_rnn:
-	max_seq_length = 1 ### Should be necessary?
 rnn_size = 5
 #rnn_num_layers = 1
 grad_clip_value = None # Set to None to disable
@@ -205,42 +203,45 @@ class OptNet(object):
 		
 class OptNetFF(OptNet):
 	def __init__(self):
-		self.feature_sizes = [max_seq_length,2,1] ### may be variable size or even always 1 if computing step by step
+		self.feature_sizes = [1,2,1] ### may be variable size or even always 1 if computing step by step
 		assert self.feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
 			self.feature_sizes[0] *= 2	
-	
-		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[0],self.feature_sizes[1]]))
-		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[1],self.feature_sizes[2]]))
-		self.b1 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[1]]))
-		self.b2 = tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[2]]))
+
+		self.W = [tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+		self.b = [tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
 	
 		super(OptNetFF, self).__init__()
 
 		
+	# Used to update the MLP during evaluation
 	def compute_updates(self, input, batch_size):
 		x = scale_grads(input)
+		self.W_1 = [tf.tile(i,(batch_size,1,1)) for i in self.W]
 		### elu causes nan loss
-		self.W1_1 = tf.tile(self.W1,(batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
-
-		self.W2_1 = tf.tile(self.W2,(batch_size,1,1))
-		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
-		return h
+		h = tf.nn.relu(tf.batch_matmul(x,self.W_1[0]) + self.b[0])
+		h = tf.nn.relu(tf.batch_matmul(h,self.W_1[1]) + self.b[1]) ### Linear output layer?
+		return h # Gradients
 		
 		
 class OptNetLSTM(OptNet):
 
 	def __init__(self):
-		self.lstm_cell = rnn_cell.BasicLSTMCell(rnn_size, forget_bias=1.0)
+		self.cell = rnn_cell.BasicLSTMCell(rnn_size, forget_bias=1.0)
+		self.state = None
 		super(OptNetLSTM, self).__init__()
-		
-
+	
+	
+	# Used to update the MLP during evaluation
+	### May require different versions for test and training
 	def compute_updates(self, input, batch_size):
-		x = scale_grads(input)
-		outputs, states = rnn.rnn(self.lstm_cell, x, states, seq_length) ###
-		return outputs, states
+		x = [scale_grads(input)]
+		seq_length = [1]
+		
+		# Compute one step
+		outputs, self.state = rnn.rnn(self.cell, x, self.state, seq_length)		
+		return outputs
 
 
 ##### Generate training data #####
@@ -277,31 +278,6 @@ init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
 
-print "Generating training data..."
-start = time.time()
-
-train_points = []
-train_losses = []
-train_grads = []
-train_mean_vectors = []
-train_inv_cov_matrices = []
-train_gaussian_weights = []
-
-for i in range(num_landscapes):
-	all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
-	[train_points_i, train_losses_i, train_grads_i, train_mean_vectors_i, train_inv_cov_matrices_i, train_gaussian_weights_i] = all_train_data
-	train_losses_i = np.transpose(train_losses_i)
-	print "Percentage of zeros: ", np.mean(np.equal(train_grads_i,np.zeros_like(train_grads_i)))
-	
-	train_points.append(train_points_i)
-	train_losses.append(train_losses_i)
-	train_grads.append(train_grads_i)
-	train_mean_vectors.append(train_mean_vectors_i)
-	train_inv_cov_matrices.append(train_inv_cov_matrices_i)
-	train_gaussian_weights.append(train_gaussian_weights_i)
-
-print "Took %ds\n" % (time.time() - start)
-
 ##### Train opt net #####
 if use_rnn:
 	opt_net = OptNetLSTM()
@@ -312,6 +288,32 @@ sess.run(opt_net.init)
 
 # One epoch is a pass through n points, not the total n*num_landscapes
 for epoch in range(opt_net.epochs):
+
+	print "Generating training data..."
+	start = time.time()
+
+	train_points = []
+	train_losses = []
+	train_grads = []
+	train_mean_vectors = []
+	train_inv_cov_matrices = []
+	train_gaussian_weights = []
+
+	for i in range(num_landscapes):
+		all_train_data = sess.run([points, losses, grads, mean_vectors, inv_cov_matrices, gaussian_weights], feed_dict={})
+		[train_points_i, train_losses_i, train_grads_i, train_mean_vectors_i, train_inv_cov_matrices_i, train_gaussian_weights_i] = all_train_data
+		train_losses_i = np.transpose(train_losses_i)
+		print "Percentage of zeros: ", np.mean(np.equal(train_grads_i,np.zeros_like(train_grads_i)))
+		
+		train_points.append(train_points_i)
+		train_losses.append(train_losses_i)
+		train_grads.append(train_grads_i)
+		train_mean_vectors.append(train_mean_vectors_i)
+		train_inv_cov_matrices.append(train_inv_cov_matrices_i)
+		train_gaussian_weights.append(train_gaussian_weights_i)
+
+	print "Took %ds\n" % (time.time() - start)
+
 	print "Epoch ", epoch
 	start = time.time()
 	perm = np.random.permutation(range(n))
@@ -402,12 +404,12 @@ if test_evaluation:
 	adam_writer.close()
 	
 	# Opt net
-	for i in range(5):
+	for i in range(10):
 		sess.run(mlp.init) # Reset parameters of net to be trained
-		for i in range(mlp.batches):
+		for j in range(mlp.batches):
 			batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
 			summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-			opt_net_writer.add_summary(summary,i)
+			opt_net_writer.add_summary(summary,j)
 		accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
 		print "Opt net accuracy: %f" % accuracy
 	opt_net_writer.close()
