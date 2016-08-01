@@ -31,7 +31,10 @@ def rnn(cell, inputs, initial_state,
 
 		(fixed_batch_size, params_size, input_size) = inputs[0].get_shape().with_rank(3)
 
-		batch_size = fixed_batch_size.value
+		if fixed_batch_size.value:
+			batch_size = fixed_batch_size.value
+		else:
+			batch_size = tf.shape(inputs[0])[0]
 
 		state = initial_state
 		sequence_length = tf.to_int32(sequence_length)
@@ -148,15 +151,15 @@ def _reverse_seq(input_seq, lengths):
 		input_.set_shape(input_shape)
 
 	# Join into (time, batch_size, depth)
-	s_joined = tf.pack(input_seq)
+	s_joined = array_ops.pack(input_seq)
 
 	if lengths is not None:
 		lengths = tf.to_int64(lengths)
 
 	# Reverse along dimension 0
-	s_reversed = tf.reverse_sequence(s_joined, lengths, 0, 1)
+	s_reversed = array_ops.reverse_sequence(s_joined, lengths, 0, 1)
 	# Split again into list
-	result = tf.unpack(s_reversed)
+	result = array_ops.unpack(s_reversed)
 	for r in result:
 		r.set_shape(input_shape)
 	return result
