@@ -33,10 +33,10 @@ grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
-num_gaussians = 250 # Number of Gaussians
+num_gaussians = 50 # Number of Gaussians
 m = 10 # Number of dimensions
 n = 1000 # Training set size, number of points
-cov_range = [0,8]
+cov_range = [0,16]
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 num_landscapes = 1 ### deprecated?
@@ -227,15 +227,16 @@ class OptNet(object):
 		
 class OptNetFF(OptNet):
 	def __init__(self):
-		self.feature_sizes = [1,4,1] ### [1,4,4,1] doesn't work
+		self.feature_sizes = [1,1] ### [1,4,4,1] doesn't work
 		assert self.feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
 			self.feature_sizes[0] *= 2
 			self.feature_sizes[-1] *= 2
 		### Numbers are too small to train effectively? Not enough variance?
-		self.W = [tf.Variable(tf.truncated_normal(stddev=0.5, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
-		self.b = [tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+		#self.W = [tf.Variable(tf.truncated_normal(stddev=0.5, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+		self.W = [tf.Variable(tf.constant(-0.01, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+		#self.b = [tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
 		#print [i.get_shape() for i in self.W]
 		super(OptNetFF, self).__init__()
 
@@ -245,9 +246,9 @@ class OptNetFF(OptNet):
 		x = scale_grads(input)
 		self.W_1 = [tf.tile(i,(batch_size,1,1)) for i in self.W]
 		### elu causes nan loss
-		h = tf.nn.relu(tf.batch_matmul(x,self.W_1[0]) + self.b[0])
+		#h = tf.nn.relu(tf.batch_matmul(x,self.W_1[0]) + self.b[0])
 		#h = tf.nn.tanh(tf.batch_matmul(x,self.W_1[1]) + self.b[1])
-		h = tf.batch_matmul(h,self.W_1[1]) + self.b[1] ### Linear output layer?
+		h = tf.batch_matmul(x,self.W_1[0])# + self.b[0]
 		h = inv_scale_grads(h)
 		return h # Updates
 		
@@ -416,6 +417,7 @@ for epoch in range(opt_net.epochs):
 												opt_net.true_batch_size: true_batch_size})
 				
 		else:
+			continue
 			_, loss_ = sess.run([opt_net.train_step, opt_net.loss], 
 								feed_dict={	opt_net.input_points: points_batch,
 											opt_net.y_losses: losses_batch,
@@ -423,12 +425,14 @@ for epoch in range(opt_net.epochs):
 											opt_net.mean_vectors: train_mean_vectors[L],
 											opt_net.inv_cov_matrices: train_inv_cov_matrices[L],
 											opt_net.gaussian_weights: train_gaussian_weights[L],
-											opt_net.true_batch_size: true_batch_size})		
+											opt_net.true_batch_size: true_batch_size})
 										
 		#if i % summary_freq == 0:
 		#	print loss_, i										
 		opt_net_losses.append(loss_)
-	
+	W_ = sess.run([opt_net.W[0]],feed_dict={})
+	print "W: ",W_
+	#print "b: ",b_	
 	print "%d\t%g\t%f\t%d" % (epoch, np.mean(opt_net_losses), percentage_zeros, time.time() - start)
 
 mlp = MLP()

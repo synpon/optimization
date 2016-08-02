@@ -23,7 +23,7 @@ seq_length = 1
 grad_clip_value = None # Set to None to disable
 
 grad_scaling_methods = ['scalar','full']
-grad_scaling_method = grad_scaling_methods[1]
+grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
@@ -83,8 +83,8 @@ class MLP:
 		### All repeated in opt_net, although the variables are taken from there
 		### Share code - activations functions could become different
 		# Apply gradient update from the opt-net
-		h = tf.nn.relu(tf.batch_matmul(input,opt_net.W1_1) + opt_net.b1)
-		h = tf.nn.relu(tf.batch_matmul(h,opt_net.W2_1) + opt_net.b2) # Gradients
+		h = tf.batch_matmul(input,opt_net.W1_1) + opt_net.b1
+		#h = tf.nn.relu(tf.batch_matmul(h,opt_net.W2_1) + opt_net.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
@@ -111,7 +111,7 @@ class OptNet:
 	def __init__(self):
 		self.epochs = 4
 		batch_size = 1 ###
-		feature_sizes = [1,4,1]
+		feature_sizes = [1,1]
 		assert feature_sizes[-1] == 1
 		
 		if grad_scaling_method == 'full':
@@ -122,21 +122,21 @@ class OptNet:
 		self.x_grads = tf.placeholder(tf.float32, [None,None,1]) # input
 		self.y_losses = tf.placeholder(tf.float32) ### batch?
 		
-		x = scale_grads(self.x_grads)
+		x = self.x_grads#scale_grads(self.x_grads)
 				
 		self.W1 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[feature_sizes[0],feature_sizes[1]]))
 		W1_1 = tf.reshape(self.W1,(-1,feature_sizes[0],feature_sizes[1])) # Convert from rank 2 to rank 3
 		self.W1_1 = tf.tile(W1_1,(batch_size,1,1))
-		self.b1 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[1]]))
+		#self.b1 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[1]]))
 
-		h = tf.nn.relu(tf.batch_matmul(x,self.W1_1) + self.b1)
+		h = tf.batch_matmul(x,self.W1_1)# + self.b1
 
-		self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
-		W2_1 = tf.reshape(self.W2,(-1,feature_sizes[1],feature_sizes[2])) # Convert from rank 2 to rank 3
-		self.W2_1 = tf.tile(W2_1,(batch_size,1,1))
-		self.b2 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[2]]))
+		#self.W2 = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[4,1]))
+		#W2_1 = tf.reshape(self.W2,(-1,feature_sizes[1],feature_sizes[2])) # Convert from rank 2 to rank 3
+		#self.W2_1 = tf.tile(W2_1,(batch_size,1,1))
+		#self.b2 = tf.Variable(tf.constant(0.1, shape=[feature_sizes[2]]))
 
-		h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
+		#h = tf.nn.relu(tf.batch_matmul(h,self.W2_1) + self.b2) # Gradients
 		
 		# Apply gradients to the parameters in the train net.
 		total = 0
