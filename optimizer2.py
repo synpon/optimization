@@ -233,11 +233,10 @@ class OptNetFF(OptNet):
 		if grad_scaling_method == 'full':
 			self.feature_sizes[0] *= 2
 			self.feature_sizes[-1] *= 2
-		### Numbers are too small to train effectively? Not enough variance?
-		#self.W = [tf.Variable(tf.truncated_normal(stddev=0.5, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
-		self.W = [tf.Variable(tf.constant(-0.01, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+
+		self.W = [tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
+		#self.W = [tf.Variable(tf.constant(-0.1, shape=[1,self.feature_sizes[i],self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
 		#self.b = [tf.Variable(tf.constant(0.1, shape=[self.feature_sizes[i+1]])) for i in range(len(self.feature_sizes) - 1)]
-		#print [i.get_shape() for i in self.W]
 		super(OptNetFF, self).__init__()
 
 		
@@ -336,7 +335,10 @@ with tf.variable_scope("gmm"):
 	cov_matrices = tf.pow(cov_matrices,0.33)/m # re-scale
 	inv_cov_matrices = tf.batch_matrix_inverse(cov_matrices) # num_gaussians,m,m
 
-	points = tf.Variable(tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
+	point_mean_vectors = tf.tile(mean_vectors,[tf.to_int32(tf.ceil(n/num_gaussians)),1,1])
+	point_mean_vectors = tf.random_crop(point_mean_vectors,[n,m,1])
+	points = tf.Variable(point_mean_vectors + 0.5*tf.random_uniform(shape=(n,m,1),dtype=tf.float32))
+	
 	losses = gmm_loss(points, mean_vectors, inv_cov_matrices, gaussian_weights, n)
 
 	opt = tf.train.AdamOptimizer() # Used for initial generation of sequences and to compute gradients
@@ -417,7 +419,6 @@ for epoch in range(opt_net.epochs):
 												opt_net.true_batch_size: true_batch_size})
 				
 		else:
-			continue
 			_, loss_ = sess.run([opt_net.train_step, opt_net.loss], 
 								feed_dict={	opt_net.input_points: points_batch,
 											opt_net.y_losses: losses_batch,
