@@ -9,7 +9,7 @@ rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
 initial_alpha_low = 1e-4    # log_uniform low limit for learning rate
 initial_alpha_high = 1e-2   # log_uniform high limit for learning rate
-use_lstm = False # Uses a feed-forward network if false
+use_lstm = True # Uses a feed-forward network if false
 dropout_prob = 0 # Set to zero to disable dropout
 
 num_threads = 8

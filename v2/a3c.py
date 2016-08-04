@@ -48,7 +48,6 @@ def train_function(parallel_index):
 		
 		if global_t > max_time_steps:
 			print "thread %d reached max steps" % parallel_index
-			#signal.pause() ### Doesn't work
 			break
 		
 		diff_global_t, reward = train_thread_class.thread(sess, global_t)
@@ -62,13 +61,13 @@ def train_function(parallel_index):
 # Globals
 stop_requested = False	
 global_t = 0
-num_trainable_vars = [None] # List used in order to make it mutable
+num_trainable_vars = [None]
 graph = tf.Graph()			
 			
 with graph.as_default(), tf.Session() as sess:
 
 	if use_lstm:
-		raise NotImplementedError
+		global_network = AC3LSTM(num_trainable_vars)
 	else:
 		global_network = AC3FF(num_trainable_vars)
 		

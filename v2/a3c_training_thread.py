@@ -24,7 +24,9 @@ class A3CTrainingthread(object):
 		self.max_global_time_step = max_global_time_step	
 		
 		if use_lstm:
-			raise NotImplementedError
+			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
+			with tf.variable_scope("model"+str(thread_index), reuse=None, initializer=initializer):
+				self.local_network = AC3LSTM(num_trainable_vars)
 		else:
 			self.local_network = AC3FF(num_trainable_vars)
 			
@@ -32,8 +34,10 @@ class A3CTrainingthread(object):
 
 		self.trainer = AccumTrainer()
 		self.trainer.prepare_minimize(self.local_network.total_loss, self.local_network.trainable_vars)
-		
-		self.accum_gradients = self.trainer.accumulate_gradients()
+		print self.local_network.total_loss
+		print self.local_network.trainable_vars
+		### restrict trainable_vars?
+		self.accum_gradients = self.trainer.accumulate_gradients() ###
 		self.reset_gradients = self.trainer.reset_gradients()
 	
 		self.apply_gradients = grad_applier.apply_gradients(
@@ -64,8 +68,6 @@ class A3CTrainingthread(object):
 		actions = []
 		rewards = []
 		values = []
-
-		terminal_end = False
 		
 		if use_lstm:
 			self.local_network.reset_state()
@@ -81,7 +83,7 @@ class A3CTrainingthread(object):
 		discounted_reward = 0
 		
 		for i in range(local_t_max):
-			if LSTM:
+			if use_lstm:
 				action_probs = self.local_network.run_policy(sess, state, update_rnn_state=True) ###
 			else:
 				action_probs = self.local_network.run_policy(sess, state) ###
@@ -90,7 +92,7 @@ class A3CTrainingthread(object):
 			states.append(state)
 			actions.append(action)
 			
-			if LSTM:
+			if use_lstm:
 			#	# Do not update the state again
 				value_ = self.local_network.run_value(sess, state, update_rnn_state=False)
 			else:
@@ -109,7 +111,7 @@ class A3CTrainingthread(object):
 
 		R = 0.0
 
-		if LSTM:
+		if use_lstm:
 			# Do not update the state again
 			R = self.local_network.run_value(sess, state, update_rnn_state=False) 
 		else:

@@ -31,8 +31,8 @@ class MLP:
 		grads,vars = zip(*grad_var_pairs)
 		grads = [tf.reshape(i,(-1,1)) for i in grads]
 		
-		if not grad_clip_value is None:
-			grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
+		#if not grad_clip_value is None:
+		#	grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
 			
 		self.grads = tf.concat(0,grads)
 		
@@ -48,7 +48,7 @@ class MLP:
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
 
-		h = opt_net.compute_updates(input,self.batch_size)
+		h = opt_net.compute_updates(input,self.batch_size) ###
 		
 		# Apply updates to the parameters in the train net.
 		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, h)
