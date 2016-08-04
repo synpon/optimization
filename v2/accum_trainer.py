@@ -23,7 +23,7 @@ class AccumTrainer(object):
 		self._var_list = var_list
 		self._grad_list = grads
 		self._accum_grad_list = []
-	
+
 		# Clear the control dependencies
 		# A control dependency of a variable is a variable that can only be computed
 		# after the first.

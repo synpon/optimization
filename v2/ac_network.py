@@ -10,28 +10,24 @@ from constants import rnn_size, num_rnn_layers, dropout_prob, num_steps, m
 class AC3Net(object):
 
 	# Create placeholder variables in order to calculate the loss
-	def prepare_loss(self, entropy_beta):
+	def prepare_loss(self, entropy_beta): ###
 	
-		# taken action (input for policy)
-		self.a = tf.placeholder(tf.float32, [1,m,1])
+		# Taken action (input for policy)
+		self.a = tf.placeholder(tf.float32, [1,m,1], 'a')
 	
-		# Policy network output
-		self.mean = tf.placeholder(tf.float32, [1,m,1])
-		self.variance = tf.placeholder(tf.float32, [1])
-	
-		# temporal difference (R-V) (input for policy)
-		self.td = tf.placeholder(tf.float32, [1])
+		# Temporal difference (R-V) (input for policy)
+		self.td = tf.placeholder(tf.float32, [1], 'td')
 		
 		# Entropy of the policy
-		entropy = -0.5*tf.log(2*3.14*self.variance)+1 ### Treat dimensions of variance differently?
+		entropy = -0.5*tf.log(2*3.14*self.variance) + 1 ### Treat dimensions of variance differently?
 
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
-		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta) ### use Euclidean distance?
+		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
 
 		# R (input for value)
-		self.r = tf.placeholder(tf.float32, [1])
+		self.r = tf.placeholder(tf.float32, [1], 'r')
 
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
@@ -52,10 +48,12 @@ class AC3Net(object):
 			return tf.group(*sync_ops, name=name)
 
 	def weight_matrix(self, n_in, n_out):
-		return tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1, n_in, n_out]))
+		with tf.variable_scope("weight"):
+			return tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1, n_in, n_out]))
 	
 	def bias_vector(self,n_out):
-		return tf.Variable(tf.constant(0.1, shape=[n_out]))
+		with tf.variable_scope("bias"):
+			return tf.Variable(tf.constant(0.1, shape=[n_out]))
 
 	def _debug_save_sub(self, sess, prefix, var, name):
 		var_val = var.eval(sess)
@@ -82,7 +80,7 @@ class AC3LSTM(AC3Net):
 		
 		# Weights for value output layer
 		self.W3 = self.weight_matrix(1,1)
-		self.W3 = tf.tile(self.W2,(batch_size,1,1))
+		self.W3 = tf.tile(self.W3,(batch_size,1,1))
 		self.b3 = self.bias_vector(1)
 		
 		cell = rnn_cell.BasicLSTMCell(rnn_size) ### Try BasicRNNCell if it doesn't work
@@ -103,7 +101,7 @@ class AC3LSTM(AC3Net):
 		if num_trainable_vars[0] == None:
 			num_trainable_vars[0] = len(tf.trainable_variables()) ### May need scope to only retrieve relevant variables
 		
-		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
+		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:] ###
 			
 	def run_policy(self, sess, state, update_rnn_state):
 		mean,variance = sess.run([self.mean,self.variance], feed_dict = {self.state : state})
@@ -131,18 +129,22 @@ class AC3FF(AC3Net):
 		batch_size = 1
 		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
 
-		self.W1 = self.weight_matrix(1,1)
-		self.W1 = tf.tile(self.W1,(batch_size,1,1))
-		self.b1 = self.bias_vector(1)
-		
-		self.W2 = self.weight_matrix(1,1)
-		self.W2 = tf.tile(self.W2,(batch_size,1,1))
-		self.b2 = self.bias_vector(1)
-		
-		# weights for value output layer
-		self.W3 = self.weight_matrix(1,1)
-		self.W3 = tf.tile(self.W2,(batch_size,1,1))
-		self.b3 = self.bias_vector(1)
+		with tf.variable_scope("AC3Net"):
+			with tf.variable_scope("policy_mean"):
+				self.W1 = self.weight_matrix(1,1)
+				self.W1 = tf.tile(self.W1,(batch_size,1,1))
+				self.b1 = self.bias_vector(1)
+			
+			with tf.variable_scope("policy_variance"):
+				self.W2 = self.weight_matrix(1,1)
+				self.W2 = tf.tile(self.W2,(batch_size,1,1))
+				self.b2 = self.bias_vector(1)
+			
+			# weights for value output layer
+			with tf.variable_scope("value"):
+				self.W3 = self.weight_matrix(1,1)
+				self.W3 = tf.tile(self.W3,(batch_size,1,1))
+				self.b3 = self.bias_vector(1)
 
 		# policy
 		self.mean = tf.batch_matmul(self.state, self.W1) + self.b1
@@ -157,9 +159,8 @@ class AC3FF(AC3Net):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
 	def run_policy(self, sess, state):
-		mean,variance = sess.run([self.mean,self.variance], feed_dict = {self.state : state})
-		update = mean + np.random.normal(0,variance,1)[0]
-		return update
+		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.state:state})
+		return mean, variance
 
 	def run_value(self, sess, state):
 		v_out = sess.run(self.v, feed_dict = {self.state : state})
@@ -167,3 +168,6 @@ class AC3FF(AC3Net):
 		
 	def debug_save(self, sess, prefix): ### Change for LSTM or make general
 		raise NotImplementedError
+
+		
+		

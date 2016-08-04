@@ -9,7 +9,7 @@ rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
 initial_alpha_low = 1e-4    # log_uniform low limit for learning rate
 initial_alpha_high = 1e-2   # log_uniform high limit for learning rate
-use_lstm = True # Uses a feed-forward network if false
+use_lstm = False # Uses a feed-forward network if false
 dropout_prob = 0 # Set to zero to disable dropout
 
 num_threads = 8
@@ -28,6 +28,6 @@ num_steps = min(5,local_t_max) # Number of steps to go back for truncated backpr
 num_gaussians = 50 # Number of Gaussians
 m = 10 # Number of dimensions
 n = 1000 # Training set size, number of points
-cov_range = [0,16]
+cov_range = [0,16] ### Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False

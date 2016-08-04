@@ -433,7 +433,7 @@ for epoch in range(opt_net.epochs):
 		opt_net_losses.append(loss_)
 	W_ = sess.run([opt_net.W[0]],feed_dict={})
 	print "W: ",W_
-	#print "b: ",b_	
+
 	print "%d\t%g\t%f\t%d" % (epoch, np.mean(opt_net_losses), percentage_zeros, time.time() - start)
 
 mlp = MLP()

@@ -54,9 +54,9 @@ def train_function(parallel_index):
 		discounted_rewards.append(reward)
 		global_t += diff_global_t
 		
-		if count % summary_freq == 0:
-			print "Reward: ", float(np.mean(discounted_rewards))
-			discounted_rewards = []
+		#if count % summary_freq == 0:
+		print "Reward: ", float(np.mean(discounted_rewards))
+		discounted_rewards = []
 
 # Globals
 stop_requested = False	

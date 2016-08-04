@@ -34,9 +34,7 @@ class A3CTrainingthread(object):
 
 		self.trainer = AccumTrainer()
 		self.trainer.prepare_minimize(self.local_network.total_loss, self.local_network.trainable_vars)
-		print self.local_network.total_loss
-		print self.local_network.trainable_vars
-		### restrict trainable_vars?
+
 		self.accum_gradients = self.trainer.accumulate_gradients() ###
 		self.reset_gradients = self.trainer.reset_gradients()
 	
@@ -45,7 +43,7 @@ class A3CTrainingthread(object):
 			self.trainer.get_accum_grad_list() )
 
 		self.sync = self.local_network.sync_from(global_network)
-		self.game_state = GMM()
+		#self.game_state = GMM(sess) ### needed?
 		self.local_t = 0
 		self.initial_learning_rate = initial_learning_rate
 		self.episode_reward = 0
@@ -57,10 +55,6 @@ class A3CTrainingthread(object):
 			learning_rate = 0
 		return learning_rate
 
-	def choose_action(self, mean, variance): # Choose a parameter update
-		cov = variance*np.ones((m,m))
-		# Sample from a multivariate normal
-		return np.random.multivariate_normal(mean, cov, 1)
 
 	# Run for one episode
 	def thread(self, sess, global_t):
@@ -79,21 +73,22 @@ class A3CTrainingthread(object):
 		start_local_t = self.local_t
 	
 		gmm = GMM() # Generate a landscape
-		state = gmm.gen_points(1) # A state is a point in the landscape
+		state = gmm.gen_point() # The state is a point in the landscape
+		
 		discounted_reward = 0
 		
 		for i in range(local_t_max):
 			if use_lstm:
-				action_probs = self.local_network.run_policy(sess, state, update_rnn_state=True) ###
+				mean,variance = self.local_network.run_policy(sess, state, update_rnn_state=True)
 			else:
-				action_probs = self.local_network.run_policy(sess, state) ###
-			
-			action = self.choose_action(action_probs) ###
+				mean,variance = self.local_network.run_policy(sess, state)
+
+			action = gmm.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
 			
 			if use_lstm:
-			#	# Do not update the state again
+				# Do not update the state again
 				value_ = self.local_network.run_value(sess, state, update_rnn_state=False)
 			else:
 				value_ = self.local_network.run_value(sess, state)
@@ -118,7 +113,6 @@ class A3CTrainingthread(object):
 			R = self.local_network.run_value(sess, state) 
 
 		# Order from the final time point to the first
-
 		actions.reverse()
 		states.reverse()
 		rewards.reverse()
@@ -126,14 +120,15 @@ class A3CTrainingthread(object):
 
 		# compute and accumulate gradients
 		for (a, r, state, V) in zip(actions, rewards, states, values):
-			R = r[0][0] + discount_rate * R
+			R = r + discount_rate * R
 			td = R - V # temporal difference
+
 			sess.run(self.accum_gradients,
 								feed_dict = {
-									self.local_network.state: [state],
-									self.local_network.a: [a],
-									self.local_network.td: [td],
-									self.local_network.r: [R]})
+									self.local_network.state: state,
+									self.local_network.a: a,
+									self.local_network.td: td,
+									self.local_network.r: R})
 			
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
