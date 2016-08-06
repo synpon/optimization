@@ -9,7 +9,7 @@ import os
 import threading
 import signal
 
-from ac_network import AC3LSTM, AC3FF
+from ac_network import A3CRNN, A3CFF
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
 
@@ -67,9 +67,9 @@ graph = tf.Graph()
 with graph.as_default(), tf.Session() as sess:
 
 	if use_lstm:
-		global_network = AC3LSTM(num_trainable_vars)
+		global_network = A3CRNN(num_trainable_vars)
 	else:
-		global_network = AC3FF(num_trainable_vars)
+		global_network = A3CFF(num_trainable_vars)
 		
 	initial_learning_rate = log_uniform(initial_alpha_low, initial_alpha_high, initial_alpha_log_rate)
 	learning_rate_input = tf.placeholder("float")

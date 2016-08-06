@@ -7,7 +7,7 @@ from constants import rnn_size, num_rnn_layers, dropout_prob, num_steps, m, rnn_
 
 
 # Actor-Critic Network (policy and value network)
-class AC3Net(object):
+class A3CNet(object):
 
 	# Create placeholder variables in order to calculate the loss
 	def prepare_loss(self, entropy_beta): ###
@@ -40,7 +40,7 @@ class AC3Net(object):
 		dst_vars = self.trainable_vars
 
 		sync_ops = []
-		with tf.op_scope([], name, "AC3Net") as name:
+		with tf.op_scope([], name, "A3CNet") as name:
 			for(src_var, dst_var) in zip(src_vars, dst_vars):
 				sync_op = tf.assign(dst_var, src_var)
 				sync_ops.append(sync_op)
@@ -61,7 +61,7 @@ class AC3Net(object):
 		np.savetxt('./' + prefix + '_' + name + '.csv', var_val, delimiter=',')
 	
 
-class AC3LSTM(AC3Net):
+class A3CRNN(A3CNet):
 	# For an RNN, input is usually of shape [batch_size,num_steps]
 	# Here they are both 1, as is the case for sampling in a generative RNN
 	def __init__(self, num_trainable_vars):		
@@ -122,14 +122,14 @@ class AC3LSTM(AC3Net):
 		
 		
 # Feed-forward
-class AC3FF(AC3Net):
+class A3CFF(A3CNet):
 	def __init__(self, num_trainable_vars):
 	
 		# Input
 		batch_size = 1
 		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
 
-		with tf.variable_scope("AC3Net"):
+		with tf.variable_scope("A3CNet"):
 			with tf.variable_scope("policy_mean"):
 				self.W1 = self.weight_matrix(1,1)
 				self.W1 = tf.tile(self.W1,(batch_size,1,1))

@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 from accum_trainer import AccumTrainer
-from ac_network import AC3LSTM, AC3FF
+from ac_network import A3CRNN, A3CFF
 from gmm import GMM
 
 from constants import discount_rate, local_t_max, entropy_beta, use_lstm, m
@@ -26,7 +26,7 @@ class A3CTrainingthread(object):
 		if use_lstm:
 			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
 			with tf.variable_scope("model"+str(thread_index), reuse=None, initializer=initializer):
-				self.local_network = AC3LSTM(num_trainable_vars)
+				self.local_network = A3CRNN(num_trainable_vars)
 		else:
 			self.local_network = AC3FF(num_trainable_vars)
 			
