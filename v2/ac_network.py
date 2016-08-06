@@ -3,7 +3,7 @@ import numpy as np
 import rnn
 import rnn_cell
 
-from constants import rnn_size, num_rnn_layers, dropout_prob, num_steps, m
+from constants import rnn_size, num_rnn_layers, dropout_prob, num_steps, m, rnn_type
 
 
 # Actor-Critic Network (policy and value network)
@@ -68,57 +68,57 @@ class AC3LSTM(AC3Net):
 
 		# Input (not the cell state)
 		batch_size = 1
-		self.state = tf.placeholder(tf.float32, [1,m])
+		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
 
-		self.W1 = self.weight_matrix(1,1)
+		self.W1 = self.weight_matrix(rnn_size,1)
 		self.W1 = tf.tile(self.W1,(batch_size,1,1))
 		self.b1 = self.bias_vector(1)
 		
-		self.W2 = self.weight_matrix(1,1)
+		self.W2 = self.weight_matrix(rnn_size,1)
 		self.W2 = tf.tile(self.W2,(batch_size,1,1))
 		self.b2 = self.bias_vector(1)
 		
 		# Weights for value output layer
-		self.W3 = self.weight_matrix(1,1)
+		self.W3 = self.weight_matrix(rnn_size,1)
 		self.W3 = tf.tile(self.W3,(batch_size,1,1))
 		self.b3 = self.bias_vector(1)
 		
-		cell = rnn_cell.BasicLSTMCell(rnn_size) ### Try BasicRNNCell if it doesn't work
+		#cell = rnn_cell.BasicLSTMCell(rnn_size)
+		cell = rnn_cell.BasicRNNCell(rnn_size)
 
 		self.rnn_state = tf.zeros([1,m,rnn_size])
-		self.rnn_state = [self.state,self.state]
+		self.rnn_state = self.state #[self.state,self.state]
 		
 		output, rnn_state_out = cell(self.state, self.rnn_state)
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
-		self.mean = tf.batch_matmul(self.state, self.W1) + self.b1
-		self.variance = tf.softplus(tf.batch_matmul(self.state, self.W2) + self.b2)
+		self.mean = tf.batch_matmul(output, self.W1) + self.b1
+		self.variance = tf.nn.softplus(tf.batch_matmul(output, self.W2) + self.b2)
 		
 		# value - linear output layer
-		self.v = tf.batch_matmul(self.state, self.W3) + self.b3
+		self.v = tf.batch_matmul(output, self.W3) + self.b3
 		
 		if num_trainable_vars[0] == None:
-			num_trainable_vars[0] = len(tf.trainable_variables()) ### May need scope to only retrieve relevant variables
+			num_trainable_vars[0] = len(tf.trainable_variables())
 		
-		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:] ###
+		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 			
 	def run_policy(self, sess, state, update_rnn_state):
-		mean,variance = sess.run([self.mean,self.variance], feed_dict = {self.state : state})
-		update = mean + np.random.normal(0,variance,1)[0]
-		if update_rnn_state:
-			self.rnn_state = rnn_state	
-		return update
+		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.state:state})
+		#if update_rnn_state: ###
+		#	self.rnn_state = rnn_state ###
+		return mean, variance
 		
 	def run_value(self, sess, state, update_rnn_state):
-		[v_out, rnn_state] = sess.run([self.v,self.rnn_state_out], feed_dict = {self.state:[state]})
-		if update_rnn_state:
-			self.rnn_state = rnn_state			
+		[v_out, rnn_state] = sess.run([self.v, self.rnn_state_out], feed_dict = {self.state: state})
+		#if update_rnn_state: ###
+		#	self.rnn_state = rnn_state ###		
 		return v_out[0][0]
 		
 	def reset_state(self, batch_size, num_params):
-		self.state = tf.zeros([batch_size,num_params,rnn_size])
-		self.state = [self.state,self.state]
+		self.rnn_state = tf.zeros([batch_size,num_params,rnn_size])
+		self.rnn_state = [self.state,self.state]
 		
 		
 # Feed-forward

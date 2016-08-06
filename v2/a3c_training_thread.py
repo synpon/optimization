@@ -43,7 +43,6 @@ class A3CTrainingthread(object):
 			self.trainer.get_accum_grad_list() )
 
 		self.sync = self.local_network.sync_from(global_network)
-		#self.game_state = GMM(sess) ### needed?
 		self.local_t = 0
 		self.initial_learning_rate = initial_learning_rate
 		self.episode_reward = 0
@@ -64,7 +63,7 @@ class A3CTrainingthread(object):
 		values = []
 		
 		if use_lstm:
-			self.local_network.reset_state()
+			self.local_network.reset_state(1,m)
 			
 		# reset accumulated gradients
 		sess.run(self.reset_gradients)
@@ -103,8 +102,11 @@ class A3CTrainingthread(object):
 
 			self.local_t += 1
 			state = next_state
+			
+		discounted_reward = (discount_rate**i)*self.episode_reward ### What triggered terminal previously?
+		self.episode_reward = 0
 
-		R = 0.0
+		R = 0.0 ### Necessary?
 
 		if use_lstm:
 			# Do not update the state again

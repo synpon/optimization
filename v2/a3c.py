@@ -28,7 +28,7 @@ def log_uniform(low, high, rate):
 	
 # Stops memory leaks from unterminated threads
 # along with signal.pause() and signal.signal(...)
-def signal_handler(signal, frame): ### How is frame used?
+def signal_handler(signal, frame):
 	global stop_requested
 	print('Requesting stop')
 	stop_requested = True

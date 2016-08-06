@@ -9,7 +9,12 @@ rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
 initial_alpha_low = 1e-4    # log_uniform low limit for learning rate
 initial_alpha_high = 1e-2   # log_uniform high limit for learning rate
-use_lstm = False # Uses a feed-forward network if false
+use_lstm = True # Uses a feed-forward network if false
+rnn_types = ['lstm','gru','rnn']
+rnn_type = rnn_types[1]
+rnn_size = 4
+num_rnn_layers = 1
+num_steps = min(5,local_t_max) # Number of steps to go back for truncated backprop.
 dropout_prob = 0 # Set to zero to disable dropout
 
 num_threads = 8
@@ -20,9 +25,7 @@ entropy_beta = 0.0001 # entropy regularization constant 10^-4
 max_time_steps = 6 * 10**7
 grad_norm_clip = 40.0 # gradient norm clipping
 
-rnn_size = 4
-num_rnn_layers = 1
-num_steps = min(5,local_t_max) # Number of steps to go back for truncated backprop.
+
 
 #### Opt net constants #####
 num_gaussians = 50 # Number of Gaussians
