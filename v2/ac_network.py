@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import rnn
 import rnn_cell
 
 from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type

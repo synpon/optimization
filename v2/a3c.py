@@ -64,7 +64,7 @@ def train_function(parallel_index):
 		discounted_rewards.append(r)
 		global_t += diff_global_t
 		
-		### Around 500 times slower than the MDP?
+		### Over 100 times slower than the MDP?
 		#if count % summary_freq == 0:
 		print "Reward: ", discounted_rewards#float(np.mean(discounted_rewards))
 		discounted_rewards = []
@@ -90,8 +90,7 @@ with graph.as_default(), tf.Session() as sess:
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(sess, i, global_network, initial_learning_rate,
-											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars)
-											
+											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))
 		

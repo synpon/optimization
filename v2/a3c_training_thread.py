@@ -6,7 +6,7 @@ from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
 from gmm import GMM
 
-from constants import local_t_max, entropy_beta, use_rnn, m
+from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate
 
 class A3CTrainingthread(object):
 	def __init__(self,
@@ -35,9 +35,8 @@ class A3CTrainingthread(object):
 		self.trainer = AccumTrainer()
 		self.trainer.prepare_minimize(self.local_network.total_loss, self.local_network.trainable_vars)
 
-		self.accum_gradients = self.trainer.accumulate_gradients() ###
+		self.accum_gradients = self.trainer.accumulate_gradients()
 		self.reset_gradients = self.trainer.reset_gradients()
-	
 		self.apply_gradients = grad_applier.apply_gradients(
 			global_network.trainable_vars,
 			self.trainer.get_accum_grad_list() )
@@ -45,6 +44,7 @@ class A3CTrainingthread(object):
 		self.sync = self.local_network.sync_from(global_network)
 		self.local_t = 0
 		self.initial_learning_rate = initial_learning_rate
+		self.W = global_network.W1
 
 
 	def _anneal_learning_rate(self, global_time_step):
@@ -95,6 +95,10 @@ class A3CTrainingthread(object):
 			# State is the point, action is the update
 			reward, next_state = gmm.act(state,action)
 
+			if i != local_t_max - 1:
+				reward = 0
+			rewards.append(reward)
+
 			self.local_t += 1
 			state = next_state
 
@@ -111,7 +115,7 @@ class A3CTrainingthread(object):
 		states.reverse()
 		rewards.reverse()
 		values.reverse()
-
+		
 		# compute and accumulate gradients
 		for (a, r, state, V) in zip(actions, rewards, states, values):
 			R = r + discount_rate * R
@@ -123,11 +127,11 @@ class A3CTrainingthread(object):
 									self.local_network.a: a,
 									self.local_network.td: td,
 									self.local_network.r: R})
-			
+			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
-		print "Weight: ", sess.run(self.local_network.W1, feed_dict = {})
+		print "Weights: ", sess.run(self.local_network.W1, feed_dict = {}), sess.run(self.W)
 		# local step
 		diff_local_t = self.local_t - start_local_t
 		return diff_local_t, reward

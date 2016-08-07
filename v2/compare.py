@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-import a3c
+#import a3c
 from mlp import MLP
 from constants import use_rnn, summaries_dir
 
@@ -11,7 +11,7 @@ global_t = 0
 num_trainable_vars = [None]
 graph = tf.Graph()	
 
-#sess = tf.Session()
+sess = tf.Session()
 
 a3c.train_opt_net()
 
