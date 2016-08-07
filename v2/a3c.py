@@ -16,9 +16,19 @@ from rmsprop_applier import RMSPropApplier
 from constants import num_threads, initial_alpha_low, \
 	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
 	checkpoint_dir, log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
-	use_lstm, summary_freq
+	use_rnn, summary_freq
 
+#def train_opt_net():
+#	global global_t
+#	global graph
+#	global stop_requested
 
+# Globals
+stop_requested = False	
+global_t = 0
+num_trainable_vars = [None]
+graph = tf.Graph()
+		
 def log_uniform(low, high, rate):
 	log_low = math.log(low)
 	log_high = math.log(high)
@@ -50,23 +60,18 @@ def train_function(parallel_index):
 			print "thread %d reached max steps" % parallel_index
 			break
 		
-		diff_global_t, reward = train_thread_class.thread(sess, global_t)
-		discounted_rewards.append(reward)
+		diff_global_t, r = train_thread_class.thread(sess, global_t)
+		discounted_rewards.append(r)
 		global_t += diff_global_t
 		
+		### Around 500 times slower than the MDP?
 		#if count % summary_freq == 0:
-		print "Reward: ", float(np.mean(discounted_rewards))
+		print "Reward: ", discounted_rewards#float(np.mean(discounted_rewards))
 		discounted_rewards = []
-
-# Globals
-stop_requested = False	
-global_t = 0
-num_trainable_vars = [None]
-graph = tf.Graph()			
 			
 with graph.as_default(), tf.Session() as sess:
 
-	if use_lstm:
+	if use_rnn:
 		global_network = A3CRNN(num_trainable_vars)
 	else:
 		global_network = A3CFF(num_trainable_vars)
@@ -102,5 +107,4 @@ with graph.as_default(), tf.Session() as sess:
 		
 	for t in train_threads:
 		t.join()
-
 

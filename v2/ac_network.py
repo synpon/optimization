@@ -3,7 +3,7 @@ import numpy as np
 import rnn
 import rnn_cell
 
-from constants import rnn_size, num_rnn_layers, dropout_prob, num_steps, m, rnn_type
+from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type
 
 
 # Actor-Critic Network (policy and value network)
@@ -87,7 +87,11 @@ class A3CRNN(A3CNet):
 		cell = rnn_cell.BasicRNNCell(rnn_size)
 
 		self.rnn_state = tf.zeros([1,m,rnn_size])
-		self.rnn_state = self.state #[self.state,self.state]
+		
+		if rnn_type in ['rnn','gru']:
+			self.rnn_state = self.state #[self.state,self.state]
+		elif rnn_type in ['lstm']:
+			raise NotImplementedError
 		
 		output, rnn_state_out = cell(self.state, self.rnn_state)
 		self.rnn_state_out = rnn_state_out
@@ -106,14 +110,14 @@ class A3CRNN(A3CNet):
 			
 	def run_policy(self, sess, state, update_rnn_state):
 		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.state:state})
-		#if update_rnn_state: ###
-		#	self.rnn_state = rnn_state ###
+		if update_rnn_state:
+			self.rnn_state = rnn_state
 		return mean, variance
 		
 	def run_value(self, sess, state, update_rnn_state):
 		[v_out, rnn_state] = sess.run([self.v, self.rnn_state_out], feed_dict = {self.state: state})
-		#if update_rnn_state: ###
-		#	self.rnn_state = rnn_state ###		
+		if update_rnn_state:
+			self.rnn_state = rnn_state	
 		return v_out[0][0]
 		
 	def reset_state(self, batch_size, num_params):
