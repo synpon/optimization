@@ -1,8 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from constants import m, n, num_gaussians, cov_range, weight_gaussians
-ratio = int(np.ceil(n/num_gaussians))
+from constants import m, num_gaussians, cov_range, weight_gaussians
 
 class GMM(object):
 	def __init__(self):
@@ -60,7 +59,6 @@ class GMM(object):
 	
 	
 	def act(self, state, action):
-		# There are no terminal states
 		state += action
 		loss = self.gmm_loss(state)
 		reward = -loss ### check sign

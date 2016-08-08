@@ -5,5 +5,9 @@
 *.log
 *.pkl
 *.csv
+*.ckpt
+*.ckpt.meta
+*.out
+*checkpoint
 MNIST_data/*
 /tests/MNIST_data/*

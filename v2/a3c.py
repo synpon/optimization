@@ -12,17 +12,14 @@ import signal
 from ac_network import A3CRNN, A3CFF
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
+from gmm import GMM
 
 from constants import num_threads, initial_alpha_low, \
 	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
-	checkpoint_dir, log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
-	use_rnn, summary_freq
+	log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
+	use_rnn, summary_freq, save_path
 
-#def train_opt_net():
-#	global global_t
-#	global graph
-#	global stop_requested
-
+	
 # Globals
 stop_requested = False	
 global_t = 0
@@ -64,10 +61,10 @@ def train_function(parallel_index):
 		discounted_rewards.append(r)
 		global_t += diff_global_t
 		
-		### Over 100 times slower than the MDP?
-		#if count % summary_freq == 0:
-		print "Reward: ", discounted_rewards#float(np.mean(discounted_rewards))
-		discounted_rewards = []
+		### Should be done on the global network so there's only one print?
+		if count % summary_freq == 0:
+			print "Reward: ", float(np.mean(discounted_rewards))
+			discounted_rewards = []
 			
 with graph.as_default(), tf.Session() as sess:
 
@@ -87,10 +84,11 @@ with graph.as_default(), tf.Session() as sess:
 				
 	train_threads = []
 	train_thread_classes = []
+	gmm = GMM()
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(sess, i, global_network, initial_learning_rate,
-											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars)							
+											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars, gmm)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))
 		
@@ -107,3 +105,6 @@ with graph.as_default(), tf.Session() as sess:
 	for t in train_threads:
 		t.join()
 
+	# Save model
+	saver = tf.train.Saver(tf.trainable_variables())
+	saver.save(sess, save_path)

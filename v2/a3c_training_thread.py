@@ -17,11 +17,13 @@ class A3CTrainingthread(object):
 			 learning_rate_input,
 			 grad_applier,
 			 max_global_time_step,
-			 num_trainable_vars):
+			 num_trainable_vars,
+			 gmm):
 
 		self.thread_index = thread_index
 		self.learning_rate_input = learning_rate_input
-		self.max_global_time_step = max_global_time_step	
+		self.max_global_time_step = max_global_time_step
+		self.gmm = gmm
 		
 		if use_rnn:
 			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
@@ -69,10 +71,11 @@ class A3CTrainingthread(object):
 		# copy weights from shared to local
 		sess.run(self.sync)
 		start_local_t = self.local_t
-		### Rewards should only be at the final time step
-		gmm = GMM() # Generate a landscape
-		state = gmm.gen_points(1) # The state is a point in the landscape	
+		
+		#gmm = GMM() # Generate a landscape
+		state = self.gmm.gen_points(1) # The state is a point in the landscape	
 		reward = 0 ### How is this used in training?
+		reward_start = None
 		
 		for i in range(local_t_max):
 			if use_rnn:
@@ -80,7 +83,7 @@ class A3CTrainingthread(object):
 			else:
 				mean,variance = self.local_network.run_policy(sess, state)
 
-			action = gmm.choose_action(mean,variance) # Calculate update
+			action = self.gmm.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
 			
@@ -93,16 +96,11 @@ class A3CTrainingthread(object):
 			values.append(value_)
 
 			# State is the point, action is the update
-			reward, next_state = gmm.act(state,action)
-
-			if i != local_t_max - 1:
-				reward = 0
+			reward, next_state = self.gmm.act(state,action)
 			rewards.append(reward)
 
 			self.local_t += 1
 			state = next_state
-
-		R = 0.0 ### Necessary?
 
 		if use_rnn:
 			# Do not update the state again
@@ -131,7 +129,7 @@ class A3CTrainingthread(object):
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
-		print "Weights: ", sess.run(self.local_network.W1, feed_dict = {}), sess.run(self.W)
+		#print "Global weight: ", sess.run(self.W)
 		# local step
 		diff_local_t = self.local_t - start_local_t
 		return diff_local_t, reward

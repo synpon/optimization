@@ -23,7 +23,7 @@ class A3CNet(object):
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
-		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
+		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta) ### Confirm use of L2 loss
 
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [1], 'r')
@@ -54,10 +54,24 @@ class A3CNet(object):
 		with tf.variable_scope("bias"):
 			return tf.Variable(tf.constant(0.1, shape=[n_out]))
 
-	def _debug_save_sub(self, sess, prefix, var, name):
-		var_val = var.eval(sess)
-		var_val = np.reshape(var_val, (1, np.product(var_val.shape)))				 
-		np.savetxt('./' + prefix + '_' + name + '.csv', var_val, delimiter=',')
+	# Update the parameters of another network (eg an MLP)
+	def update_params(self, vars, h):
+		total = 0
+		ret = []
+
+		for i,v in enumerate(vars):
+			size = np.prod(list(v.get_shape()))
+			size = tf.to_int32(size)
+			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
+			var_grads = tf.reshape(var_grads,v.get_shape())
+			
+			#if not grad_clip_value is None:
+			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
+			
+			ret.append(v.assign_add(var_grads))
+			size += total
+			
+		return tf.group(*ret)
 	
 
 class A3CRNN(A3CNet):
@@ -162,11 +176,14 @@ class A3CFF(A3CNet):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
 	def run_policy(self, sess, state):
+		#if np.any(np.isnan(state)):
+		#	print "State: ", state
+		#	raise ValueError
 		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.state:state})
 		return mean, variance
 
 	def run_value(self, sess, state):
-		v_out = sess.run(self.v, feed_dict = {self.state : state})
+		v_out = sess.run(self.v, feed_dict={self.state:state})
 		return v_out[0][0] # output is scalar
 		
 	def debug_save(self, sess, prefix): ### Change for LSTM or make general

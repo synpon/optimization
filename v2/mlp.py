@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 class MLP:
-	def __init__(self):
+	def __init__(self, opt_net, sess):
 		self.batch_size = 1 # 32
 		self.batches = 1000
 
@@ -43,12 +43,13 @@ class MLP:
 
 		self.init = tf.initialize_all_variables()
 	
-	
-	def init_opt_net_part(self):
+		##### Opt net #####
 		input = self.grads
 		input = tf.reshape(input,[1,-1,1]) ### check
 
-		h = opt_net.compute_updates(input,self.batch_size) ###
+		updates = tf.batch_matmul(input, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
-		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, h)
+		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, updates)
+		
+		

@@ -1,21 +1,19 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-#import a3c
 from mlp import MLP
-from constants import use_rnn, summaries_dir
-
-# Globals
-stop_requested = False	
-global_t = 0
-num_trainable_vars = [None]
-graph = tf.Graph()	
+from ac_network import A3CRNN, A3CFF
+from constants import use_rnn, summaries_dir, save_path
 
 sess = tf.Session()
 
-a3c.train_opt_net()
+opt_net = A3CFF([None])
+		
+# Load model
+saver = tf.train.Saver(tf.trainable_variables())
+saver.restore(sess, save_path)
 
-mlp = MLP()
+mlp = MLP(opt_net,sess)
 sess.run(mlp.init)
 
 print "\nRunning optimizer comparison..."
@@ -58,7 +56,7 @@ adam_writer.close()
 	#opt_net.reset_state(mlp.batch_size, 7850) ### Should not be hardcoded
 	#sess.run([opt_net.init],feed_dict={})
 	
-mlp.init_opt_net_part()
+#mlp.init_opt_net_part()
 
 for i in range(10):
 	sess.run(mlp.init) # Reset parameters of net to be trained
