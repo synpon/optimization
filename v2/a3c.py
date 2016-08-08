@@ -108,3 +108,5 @@ with graph.as_default(), tf.Session() as sess:
 	# Save model
 	saver = tf.train.Saver(tf.trainable_variables())
 	saver.save(sess, save_path)
+	print "Model saved"
+	

@@ -51,13 +51,6 @@ accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: m
 print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
-# Opt net
-#if use_rnn:
-	#opt_net.reset_state(mlp.batch_size, 7850) ### Should not be hardcoded
-	#sess.run([opt_net.init],feed_dict={})
-	
-#mlp.init_opt_net_part()
-
 for i in range(10):
 	sess.run(mlp.init) # Reset parameters of net to be trained
 	for j in range(mlp.batches):

@@ -16,7 +16,7 @@ initial_alpha_low = 1e-4    # log_uniform low limit for learning rate
 initial_alpha_high = 1e-2   # log_uniform high limit for learning rate
 initial_alpha_log_rate = 0.4226 # log_uniform interpolate rate for learning rate (around 7 * 10^-4) ### description is incorrect
 entropy_beta = 0.0001 # entropy regularization constant 10^-4
-max_time_steps = 5000
+max_time_steps = 50000
 grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.95
 

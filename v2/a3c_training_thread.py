@@ -24,6 +24,7 @@ class A3CTrainingthread(object):
 		self.learning_rate_input = learning_rate_input
 		self.max_global_time_step = max_global_time_step
 		self.gmm = gmm
+		self.episode_reward = 0
 		
 		if use_rnn:
 			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
@@ -63,6 +64,8 @@ class A3CTrainingthread(object):
 		rewards = []
 		values = []
 		
+		terminal_end = False
+		
 		if use_rnn:
 			self.local_network.reset_state(1,m)
 			
@@ -72,10 +75,8 @@ class A3CTrainingthread(object):
 		sess.run(self.sync)
 		start_local_t = self.local_t
 		
-		#gmm = GMM() # Generate a landscape
-		state = self.gmm.gen_points(1) # The state is a point in the landscape	
-		reward = 0 ### How is this used in training?
-		reward_start = None
+		state = self.gmm.gen_points(1) # Generate a new starting point in the landscape
+		discounted_reward = 0
 		
 		for i in range(local_t_max):
 			if use_rnn:
@@ -97,10 +98,24 @@ class A3CTrainingthread(object):
 
 			# State is the point, action is the update
 			reward, next_state = self.gmm.act(state,action)
+			
+			self.episode_reward += reward
 			rewards.append(reward)
 
 			self.local_t += 1
 			state = next_state
+
+			### Terminate after a set number of time steps instead
+			terminal = random.random() < 0.01
+				
+			if terminal: 
+				terminal_end = True
+				discounted_reward = (discount_rate**i)*self.episode_reward
+				self.episode_reward = 0
+				state = self.gmm.gen_points(1)
+				if use_rnn:
+					self.local_network.reset_state(1,m)
+				break
 
 		if use_rnn:
 			# Do not update the state again
