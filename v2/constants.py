@@ -12,13 +12,13 @@ local_t_max = 5 # repeat step size
 num_steps = min(5,local_t_max) # Number of steps to go back for truncated backprop.
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
-initial_alpha_low = 1e-4    # log_uniform low limit for learning rate
-initial_alpha_high = 1e-2   # log_uniform high limit for learning rate
+initial_alpha_low = 1e-4   # log_uniform low limit for learning rate 1e-4
+initial_alpha_high = 1e-4   # log_uniform high limit for learning rate 1e-2
 initial_alpha_log_rate = 0.4226 # log_uniform interpolate rate for learning rate (around 7 * 10^-4) ### description is incorrect
-entropy_beta = 0.0001 # entropy regularization constant 10^-4
-max_time_steps = 50000
+entropy_beta = 1e-4 # entropy regularization constant 0.0001
+max_time_steps = 5e5
 grad_norm_clip = 40.0 # gradient norm clipping
-discount_rate = 0.95
+discount_rate = 0.99
 
 ##### Opt net constants #####
 use_rnn = False # Uses a feed-forward network if false
