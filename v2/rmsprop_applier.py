@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.python.training import training_ops
 from tensorflow.python.training import slot_creator
 
-class RMSPropApplier(object): ### Rename as RMSPropAsync
+class RMSPropApplier(object):
 
 	def __init__(self,
 			 learning_rate,

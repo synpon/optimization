@@ -9,27 +9,36 @@ summary_freq = 100
 ##### A3C constants #####
 num_threads = 8
 local_t_max = 5 # repeat step size
-num_steps = min(5,local_t_max) # Number of steps to go back for truncated backprop.
+num_steps = 3 # Number of steps to go back for truncated backprop.
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
-initial_alpha_low = 1e-4   # log_uniform low limit for learning rate 1e-4
-initial_alpha_high = 1e-4   # log_uniform high limit for learning rate 1e-2
+initial_alpha_low = 1e-5    # log_uniform low limit for learning rate
+initial_alpha_high = 1e-5   # log_uniform high limit for learning rate
 initial_alpha_log_rate = 0.4226 # log_uniform interpolate rate for learning rate (around 7 * 10^-4) ### description is incorrect
 entropy_beta = 1e-4 # entropy regularization constant 0.0001
-max_time_steps = 5e5
+max_time_steps = 5e7
 grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.99
 
 ##### Opt net constants #####
-use_rnn = False # Uses a feed-forward network if false
+use_rnn = True # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
-rnn_size = 4 ### Causes W1 to be the wrong size?
+rnn_size = 2 ### Causes W1 to be the wrong size?
 num_rnn_layers = 1
 
 ##### GMM constants #####
 num_gaussians = 10 # 50 # Number of Gaussians
-m = 2 # 10 # Number of dimensions
+m = 4 # 10 # Number of dimensions
 cov_range = [0,2] # 16 ### Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
+
+grad_scaling_methods = ['none','scalar','full']
+grad_scaling_method = grad_scaling_methods[0]
+grad_scaling_factor = 0.1
+p = 10.0
+
+# Random noise is computed each time the point is processed while training the opt net
+#loss_noise = False
+#loss_noise_size = 0.2 # Determines the size of the standard deviation. The mean is zero.

@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import rnn_cell
 
-from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type
+from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
 
 
 # Actor-Critic Network (policy and value network)
@@ -24,7 +24,7 @@ class A3CNet(object):
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
 		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta) ### Confirm use of L2 loss
-
+		### Print relative magnitudes, including the value loss
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [1], 'r')
 
@@ -35,7 +35,7 @@ class A3CNet(object):
 		
 
 	def sync_from(self, src_network, name=None):
-		src_vars = src_network.trainable_vars ### built-in function to do this?
+		src_vars = src_network.trainable_vars
 		dst_vars = self.trainable_vars
 
 		sync_ops = []
@@ -48,11 +48,13 @@ class A3CNet(object):
 
 	def weight_matrix(self, n_in, n_out):
 		with tf.variable_scope("weight"):
-			return tf.Variable(tf.truncated_normal(stddev=0.1, shape=[1, n_in, n_out]))
+			d = 1.0/np.sqrt(n_in)
+			return tf.Variable(tf.random_uniform(shape=[1, n_in, n_out], minval=-d, maxval=d))
 	
-	def bias_vector(self,n_out):
+	def bias_vector(self, n_in, n_out):
 		with tf.variable_scope("bias"):
-			return tf.Variable(tf.constant(0.1, shape=[n_out]))
+			d = 1.0/np.sqrt(n_in)
+			return tf.Variable(tf.random_uniform(shape=[n_out], minval=-d, maxval=d))
 
 	# Update the parameters of another network (eg an MLP)
 	def update_params(self, vars, h):
@@ -69,10 +71,54 @@ class A3CNet(object):
 			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
 			
 			ret.append(v.assign_add(var_grads))
-			size += total
-			
+			size += total		
 		return tf.group(*ret)
-	
+
+		
+	def scale_grads(self,input):
+		if grad_scaling_method == 'scalar':
+			return input*tf.constant(grad_scaling_factor)	
+			
+		elif grad_scaling_method == 'full':	
+			p_ = tf.constant(p)
+			grad_threshold = tf.exp(-p_)
+		
+			# Operations are element-wise
+			mask = tf.greater(tf.abs(input),grad_threshold)
+			mask = tf.to_float(mask) # Convert from boolean
+			inv_mask = 1 - mask
+			
+			x1_cond1 = tf.log(tf.abs(input))/p_
+			x2_cond1 = tf.sign(input)
+			x1_cond2 = -tf.ones(tf.shape(input))
+			x2_cond2 = tf.exp(p_)*input
+			
+			x1 = x1_cond1*mask + x1_cond2*inv_mask
+			x2 = x2_cond1*mask + x2_cond2*inv_mask
+			
+			return tf.concat(2,[x1,x2])	
+		return input
+		
+		
+	def inv_scale_grads(self,input): ### use this
+		if grad_scaling_method == 'scalar':
+			return input/tf.constant(grad_scaling_factor)	
+			
+		elif grad_scaling_method == 'full':	
+			p_ = tf.constant(p)
+		
+			# Operations are element-wise
+			a,b = tf.split(2,2,input)
+			mask = tf.equal(tf.abs(b),1.0)
+			mask = tf.to_float(mask) # Convert from boolean
+			inv_mask = 1 - mask
+			
+			x_cond1 = tf.sign(b)*tf.exp(a*p_)
+			x_cond2 = b/tf.exp(p_)
+			
+			return x_cond1*mask + x_cond2*inv_mask		
+		return input
+		
 
 class A3CRNN(A3CNet):
 	# For an RNN, input is usually of shape [batch_size,num_steps]
@@ -82,36 +128,45 @@ class A3CRNN(A3CNet):
 		# Input (not the cell state)
 		batch_size = 1
 		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
+		
+		state = self.scale_grads(self.state)
 
 		self.W1 = self.weight_matrix(rnn_size,1)
 		self.W1 = tf.tile(self.W1,(batch_size,1,1))
-		self.b1 = self.bias_vector(1)
+		self.b1 = self.bias_vector(1,1)
 		
 		self.W2 = self.weight_matrix(rnn_size,1)
 		self.W2 = tf.tile(self.W2,(batch_size,1,1))
-		self.b2 = self.bias_vector(1)
+		self.b2 = self.bias_vector(1,1)
 		
 		# Weights for value output layer
 		self.W3 = self.weight_matrix(rnn_size,1)
 		self.W3 = tf.tile(self.W3,(batch_size,1,1))
-		self.b3 = self.bias_vector(1)
+		self.b3 = self.bias_vector(1,1)
 		
-		#cell = rnn_cell.BasicLSTMCell(rnn_size)
-		cell = rnn_cell.BasicRNNCell(rnn_size)
+		if rnn_type == 'rnn':
+			self.cell = rnn_cell.BasicRNNCell(rnn_size)
+		elif rnn_type == 'gru':
+			self.cell = rnn_cell.GRUCell(rnn_size)
+		elif rnn_type == 'lstm':
+			self.cell = rnn_cell.BasicLSTMCell(rnn_size)
 
 		self.rnn_state = tf.zeros([1,m,rnn_size])
 		
 		if rnn_type in ['rnn','gru']:
-			self.rnn_state = self.state #[self.state,self.state]
+			self.rnn_state = state #[self.state,self.state]
 		elif rnn_type in ['lstm']:
 			raise NotImplementedError
 		
-		output, rnn_state_out = cell(self.state, self.rnn_state)
+		output,rnn_state_out = self.cell(state, self.rnn_state)
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
 		self.mean = tf.batch_matmul(output, self.W1) + self.b1
 		self.variance = tf.nn.softplus(tf.batch_matmul(output, self.W2) + self.b2)
+		
+		#self.mean = self.inv_scale_grads(self.mean)
+		#self.variance = self.inv_scale_grads(self.variance)
 		
 		# value - linear output layer
 		self.v = tf.batch_matmul(output, self.W3) + self.b3
@@ -145,30 +200,32 @@ class A3CFF(A3CNet):
 		# Input
 		batch_size = 1
 		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
+		
+		state = self.scale_grads(self.state) ### Add inverse scaling
 
 		with tf.variable_scope("A3CNet"):
 			with tf.variable_scope("policy_mean"):
 				self.W1 = self.weight_matrix(1,1)
 				self.W1 = tf.tile(self.W1,(batch_size,1,1))
-				self.b1 = self.bias_vector(1)
+				self.b1 = self.bias_vector(1,1)
 			
 			with tf.variable_scope("policy_variance"):
 				self.W2 = self.weight_matrix(1,1)
 				self.W2 = tf.tile(self.W2,(batch_size,1,1))
-				self.b2 = self.bias_vector(1)
+				self.b2 = self.bias_vector(1,1)
 			
 			# weights for value output layer
 			with tf.variable_scope("value"):
 				self.W3 = self.weight_matrix(1,1)
 				self.W3 = tf.tile(self.W3,(batch_size,1,1))
-				self.b3 = self.bias_vector(1)
+				self.b3 = self.bias_vector(1,1)
 
 		# policy
-		self.mean = tf.batch_matmul(self.state, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.batch_matmul(self.state, self.W2) + self.b2)
+		self.mean = tf.batch_matmul(state, self.W1) + self.b1
+		self.variance = tf.nn.softplus(tf.batch_matmul(state, self.W2) + self.b2)
 		
 		# value - linear output layer
-		self.v = tf.batch_matmul(self.state, self.W3) + self.b3
+		self.v = tf.batch_matmul(state, self.W3) + self.b3
 		
 		if num_trainable_vars[0] == None:
 			num_trainable_vars[0] = len(tf.trainable_variables())

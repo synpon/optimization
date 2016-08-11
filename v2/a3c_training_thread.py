@@ -5,7 +5,7 @@ import random
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
 from gmm import GMM
-
+from diagnostics import print_loss_components
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate
 
 class A3CTrainingthread(object):
@@ -133,7 +133,7 @@ class A3CTrainingthread(object):
 		for (a, r, state, V) in zip(actions, rewards, states, values):
 			R = r + discount_rate * R
 			td = R - V # temporal difference
-
+			#print_loss_components(a,td,self.local_network.variance,self.local_network.mean,r,V)
 			sess.run(self.accum_gradients,
 								feed_dict = {
 									self.local_network.state: state,

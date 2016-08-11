@@ -7,7 +7,10 @@ from constants import use_rnn, summaries_dir, save_path
 
 sess = tf.Session()
 
-opt_net = A3CFF([None])
+if use_rnn:
+	opt_net = A3CRNN([None])
+else:
+	opt_net = A3CFF([None])
 		
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())

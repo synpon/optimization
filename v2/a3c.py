@@ -8,6 +8,7 @@ import math
 import os
 import threading
 import signal
+import argparse
 
 from ac_network import A3CRNN, A3CFF
 from a3c_training_thread import A3CTrainingthread
@@ -18,6 +19,12 @@ from constants import num_threads, initial_alpha_low, \
 	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
 	log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
 	use_rnn, summary_freq, save_path
+
+	
+parser = argparse.ArgumentParser()
+parser.add_argument('--save', '-s', dest='save_model', action='store_true')
+parser.set_defaults(save=False)
+args = parser.parse_args()
 
 	
 # Globals
@@ -106,7 +113,8 @@ with graph.as_default(), tf.Session() as sess:
 		t.join()
 
 	# Save model
-	saver = tf.train.Saver(tf.trainable_variables())
-	saver.save(sess, save_path)
-	print "Model saved"
+	if args.save_model:
+		saver = tf.train.Saver(tf.trainable_variables())
+		saver.save(sess, save_path)
+		print "Model saved"
 	
