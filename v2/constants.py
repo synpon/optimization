@@ -21,16 +21,16 @@ grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.99
 
 ##### Opt net constants #####
-use_rnn = True # Uses a feed-forward network if false
+use_rnn = False # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
-rnn_size = 2 ### Causes W1 to be the wrong size?
+rnn_size = 2
 num_rnn_layers = 1
 
 ##### GMM constants #####
 num_gaussians = 10 # 50 # Number of Gaussians
-m = 4 # 10 # Number of dimensions
-cov_range = [0,2] # 16 ### Only the upper bound is used
+m = 2 # 10 # Number of dimensions
+cov_range = [0,2] # 16 # Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 
@@ -38,6 +38,8 @@ grad_scaling_methods = ['none','scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
+
+termination_prob = 0.01
 
 # Random noise is computed each time the point is processed while training the opt net
 #loss_noise = False

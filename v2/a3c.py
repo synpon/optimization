@@ -14,6 +14,7 @@ from ac_network import A3CRNN, A3CFF
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
 from gmm import GMM
+from diagnostics import gmm_zeros
 
 from constants import num_threads, initial_alpha_low, \
 	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
@@ -92,6 +93,7 @@ with graph.as_default(), tf.Session() as sess:
 	train_threads = []
 	train_thread_classes = []
 	gmm = GMM()
+	gmm_zeros(gmm)
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(sess, i, global_network, initial_learning_rate,

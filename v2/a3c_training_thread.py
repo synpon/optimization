@@ -5,8 +5,8 @@ import random
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
 from gmm import GMM
-from diagnostics import print_loss_components
-from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate
+from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate#, termination_prob
+termination_prob = 0.01
 
 class A3CTrainingthread(object):
 	def __init__(self,
@@ -62,7 +62,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []
+		#values = []
 		
 		terminal_end = False
 		
@@ -88,13 +88,13 @@ class A3CTrainingthread(object):
 			states.append(state)
 			actions.append(action)
 			
-			if use_rnn:
+			#if use_rnn:
 				# Do not update the state again
-				value_ = self.local_network.run_value(sess, state, update_rnn_state=False)
-			else:
-				value_ = self.local_network.run_value(sess, state)
+			#	value_ = self.local_network.run_value(sess, state, update_rnn_state=False)
+			#else:
+			#	value_ = self.local_network.run_value(sess, state)
 				
-			values.append(value_)
+			#values.append(value_)
 
 			# State is the point, action is the update
 			reward, next_state = self.gmm.act(state,action)
@@ -105,8 +105,8 @@ class A3CTrainingthread(object):
 			self.local_t += 1
 			state = next_state
 
-			### Terminate after a set number of time steps instead
-			terminal = random.random() < 0.01
+			### Terminate after a set number of time steps instead?
+			terminal = random.random() < termination_prob
 				
 			if terminal: 
 				terminal_end = True
@@ -117,29 +117,30 @@ class A3CTrainingthread(object):
 					self.local_network.reset_state(1,m)
 				break
 
-		if use_rnn:
+		#if use_rnn:
 			# Do not update the state again
-			R = self.local_network.run_value(sess, state, update_rnn_state=False) 
-		else:
-			R = self.local_network.run_value(sess, state) 
+		#	R = self.local_network.run_value(sess, state, update_rnn_state=False) 
+		#else:
+		#	R = self.local_network.run_value(sess, state) 
 
 		# Order from the final time point to the first
 		actions.reverse()
 		states.reverse()
 		rewards.reverse()
-		values.reverse()
+		#values.reverse()
 		
 		# compute and accumulate gradients
-		for (a, r, state, V) in zip(actions, rewards, states, values):
-			R = r + discount_rate * R
-			td = R - V # temporal difference
+		#for (a, r, state, V) in zip(actions, rewards, states, values):
+		for (a, r, state) in zip(actions, rewards, states):
+			#R = r + discount_rate * R
+			#td = R - V # temporal difference
 			#print_loss_components(a,td,self.local_network.variance,self.local_network.mean,r,V)
 			sess.run(self.accum_gradients,
 								feed_dict = {
 									self.local_network.state: state,
-									self.local_network.a: a,
-									self.local_network.td: td,
-									self.local_network.r: R})
+									self.local_network.a: a})#,
+									#self.local_network.td: td,
+									#self.local_network.r: R})
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 

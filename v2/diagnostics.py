@@ -1,12 +1,23 @@
-from constants import entropy_beta
 import numpy as np
 
-def print_loss_components(a,td,variance,mean,r,v):
-	entropy = -0.5*np.log(2*3.14*variance) + 1
-	print "Entropy: ", entropy*entropy_beta
-	print "Policy loss (L2):", np.sum((mean - a) ** 2) / 2
-	print "Policy loss (main): ", (np.sum((mean - a) ** 2) / 2)*td
+from constants import entropy_beta, m, num_gaussians, cov_range, weight_gaussians
+from gmm import GMM
 
-	# Learning rate for critic is half of actor's, so multiply by 0.5
-	value_loss = 0.5 * (np.sum((r - v) ** 2) / 2)
-	print "Value loss: ", value_loss
+# Percentage of zero losses 
+def gmm_zeros(gmm):
+	n = 1000
+	points = gmm.gen_points(n)
+	
+	losses = []
+	for i in range(num_gaussians):
+		d = points - gmm.mean_vectors[i]
+		d = np.reshape(d,(n,m))
+		loss = np.dot(d, gmm.inv_cov_matrices[i])
+		loss = np.square(loss)
+		loss = -np.exp(-0.5*loss)
+		losses.append(loss)
+		
+	losses = np.array(losses)
+	z = np.zeros_like(losses)
+	z = np.equal(z,losses).astype(int)
+	print "Zeros: ", np.mean(z)
