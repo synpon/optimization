@@ -4,7 +4,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
-from gmm import GMM
+from gmm import GMM, State
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate#, termination_prob
 termination_prob = 0.01
 
@@ -67,7 +67,7 @@ class A3CTrainingthread(object):
 		terminal_end = False
 		
 		if use_rnn:
-			self.local_network.reset_state(1,m)
+			self.local_network.reset_rnn_state(1,m)
 			
 		# reset accumulated gradients
 		sess.run(self.reset_gradients)
@@ -75,14 +75,15 @@ class A3CTrainingthread(object):
 		sess.run(self.sync)
 		start_local_t = self.local_t
 		
-		state = self.gmm.gen_points(1) # Generate a new starting point in the landscape
+		state = State(self.gmm) # Generate a new starting point in the landscape
+
 		discounted_reward = 0
 		
 		for i in range(local_t_max):
 			if use_rnn:
-				mean,variance = self.local_network.run_policy(sess, state, update_rnn_state=True)
+				mean,variance = self.local_network.run_policy(sess, state.grads, update_rnn_state=True)
 			else:
-				mean,variance = self.local_network.run_policy(sess, state)
+				mean,variance = self.local_network.run_policy(sess, state.grads)
 
 			action = self.gmm.choose_action(mean,variance) # Calculate update
 			states.append(state)
@@ -112,9 +113,9 @@ class A3CTrainingthread(object):
 				terminal_end = True
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
-				state = self.gmm.gen_points(1)
+				state = State(self.gmm)
 				if use_rnn:
-					self.local_network.reset_state(1,m)
+					self.local_network.reset_rnn_state(1,m)
 				break
 
 		#if use_rnn:
@@ -135,9 +136,10 @@ class A3CTrainingthread(object):
 			#R = r + discount_rate * R
 			#td = R - V # temporal difference
 			#print_loss_components(a,td,self.local_network.variance,self.local_network.mean,r,V)
+			# grads is the state, here
 			sess.run(self.accum_gradients,
 								feed_dict = {
-									self.local_network.state: state,
+									self.local_network.grads: np.reshape(state.grads,[1,m,1]),
 									self.local_network.a: a})#,
 									#self.local_network.td: td,
 									#self.local_network.r: R})

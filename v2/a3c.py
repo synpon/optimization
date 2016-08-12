@@ -74,6 +74,7 @@ def train_function(parallel_index):
 			print "Reward: ", float(np.mean(discounted_rewards))
 			discounted_rewards = []
 			
+			
 with graph.as_default(), tf.Session() as sess:
 
 	if use_rnn:

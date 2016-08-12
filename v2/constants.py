@@ -30,7 +30,7 @@ num_rnn_layers = 1
 ##### GMM constants #####
 num_gaussians = 10 # 50 # Number of Gaussians
 m = 2 # 10 # Number of dimensions
-cov_range = [0,2] # 16 # Only the upper bound is used
+cov_range = [0,4] # 16 # Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 

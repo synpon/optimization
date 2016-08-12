@@ -9,7 +9,7 @@ from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type, grad_sca
 class A3CNet(object):
 
 	# Create placeholder variables in order to calculate the loss
-	def prepare_loss(self, entropy_beta): ###
+	def prepare_loss(self, entropy_beta):
 	
 		# Taken action (input for policy)
 		self.a = tf.placeholder(tf.float32, [1,m,1], 'a')
@@ -80,11 +80,11 @@ class A3CRNN(A3CNet):
 	# Here they are both 1, as is the case for sampling in a generative RNN
 	def __init__(self, num_trainable_vars):		
 
-		# Input (not the cell state)
+		# Input
 		batch_size = 1
-		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
+		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
 		
-		state = scale_grads(self.state)
+		grads = scale_grads(self.grads)
 
 		self.W1 = self.weight_matrix(rnn_size,1)
 		self.W1 = tf.tile(self.W1,(batch_size,1,1))
@@ -106,14 +106,13 @@ class A3CRNN(A3CNet):
 		elif rnn_type == 'lstm':
 			self.cell = rnn_cell.BasicLSTMCell(rnn_size)
 
-		self.rnn_state = tf.zeros([1,m,rnn_size])
-		
-		if rnn_type in ['rnn','gru']:
-			self.rnn_state = state #[self.state,self.state]
-		elif rnn_type in ['lstm']:
+		### Redo in the style of miyosuda's implementation?
+		self.rnn_state = tf.zeros([1,m,rnn_size]) 
+
+		if rnn_type == 'lstm':
 			raise NotImplementedError
 		
-		output,rnn_state_out = self.cell(state, self.rnn_state)
+		output,rnn_state_out = self.cell(grads, self.rnn_state)
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
@@ -130,7 +129,8 @@ class A3CRNN(A3CNet):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 			
 	def run_policy(self, sess, state, update_rnn_state):
-		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.state:state})
+		state = np.reshape(state,[1,m,1])
+		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.grads:state})
 		if update_rnn_state:
 			self.rnn_state = rnn_state
 		return mean, variance
@@ -141,9 +141,11 @@ class A3CRNN(A3CNet):
 	#		self.rnn_state = rnn_state	
 	#	return v_out[0][0]
 		
-	def reset_state(self, batch_size, num_params):
-		self.rnn_state = tf.zeros([batch_size,num_params,rnn_size])
-		self.rnn_state = [self.state,self.state]
+	def reset_rnn_state(self, batch_size, num_params):
+		self.rnn_state = tf.zeros([batch_size,num_params,rnn_size]) ### tensorflow (may need to be run) or numpy?
+		
+		if rnn_type == 'lstm':
+			raise NotImplementedError
 		
 		
 # Feed-forward
@@ -152,9 +154,9 @@ class A3CFF(A3CNet):
 	
 		# Input
 		batch_size = 1
-		self.state = tf.placeholder(tf.float32, [batch_size,m,1])
+		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
 		
-		state = scale_grads(self.state) ### Add inverse scaling
+		grads = scale_grads(self.grads) ### Add inverse scaling
 
 		with tf.variable_scope("A3CNet"):
 			with tf.variable_scope("policy_mean"):
@@ -174,8 +176,8 @@ class A3CFF(A3CNet):
 			#	self.b3 = self.bias_vector(1,1)
 
 		# policy
-		self.mean = tf.batch_matmul(state, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.batch_matmul(state, self.W2) + self.b2)
+		self.mean = tf.batch_matmul(grads, self.W1) + self.b1
+		self.variance = tf.nn.softplus(tf.batch_matmul(grads, self.W2) + self.b2)
 		
 		# value - linear output layer
 		#self.v = tf.batch_matmul(state, self.W3) + self.b3
@@ -186,7 +188,8 @@ class A3CFF(A3CNet):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
 	def run_policy(self, sess, state):
-		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.state:state})
+		state = np.reshape(state,[1,m,1])
+		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:state})
 		return mean, variance
 
 	#def run_value(self, sess, state):
