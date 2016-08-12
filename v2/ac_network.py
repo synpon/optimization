@@ -118,7 +118,6 @@ class A3CRNN(A3CNet):
 		# policy
 		self.mean = tf.batch_matmul(output, self.W1) + self.b1
 		self.variance = tf.nn.softplus(tf.batch_matmul(output, self.W2) + self.b2)
-		self.variance = tf.clip_by_value(self.variance, clip_value_min=0.01)
 		
 		# value - linear output layer
 		#self.v = tf.batch_matmul(output, self.W3) + self.b3
@@ -128,9 +127,11 @@ class A3CRNN(A3CNet):
 		
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 			
+			
 	def run_policy(self, sess, state, update_rnn_state):
 		state = np.reshape(state,[1,m,1])
 		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.grads:state})
+		variance = np.maximum(variance,0.01)	
 		if update_rnn_state:
 			self.rnn_state = rnn_state
 		return mean, variance
@@ -190,6 +191,7 @@ class A3CFF(A3CNet):
 	def run_policy(self, sess, state):
 		state = np.reshape(state,[1,m,1])
 		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:state})
+		variance = np.maximum(variance,0.01)
 		return mean, variance
 
 	#def run_value(self, sess, state):
