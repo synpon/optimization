@@ -4,7 +4,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
-from gmm import GMM, State
+from gmm import GMM, State, StateOps
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate#, termination_prob
 termination_prob = 0.01
 
@@ -19,7 +19,9 @@ class A3CTrainingthread(object):
 			 max_global_time_step,
 			 num_trainable_vars,
 			 gmm):
-
+			 
+		# All ops to be executed in a thread must be defined here since tf.Graph is not thread-safe.
+		
 		self.thread_index = thread_index
 		self.learning_rate_input = learning_rate_input
 		self.max_global_time_step = max_global_time_step
@@ -34,6 +36,8 @@ class A3CTrainingthread(object):
 			self.local_network = A3CFF(num_trainable_vars)
 			
 		self.local_network.prepare_loss(entropy_beta)
+		
+		self.state_ops = StateOps()
 
 		self.trainer = AccumTrainer()
 		self.trainer.prepare_minimize(self.local_network.total_loss, self.local_network.trainable_vars)
@@ -75,7 +79,7 @@ class A3CTrainingthread(object):
 		sess.run(self.sync)
 		start_local_t = self.local_t
 		
-		state = State(self.gmm) # Generate a new starting point in the landscape
+		state = State(self.gmm,self.state_ops,sess) # Generate a new starting point in the landscape
 
 		discounted_reward = 0
 		
@@ -113,7 +117,7 @@ class A3CTrainingthread(object):
 				terminal_end = True
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
-				state = State(self.gmm)
+				state = State(self.gmm,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state(1,m)
 				break

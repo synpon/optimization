@@ -61,27 +61,21 @@ class GMM(object):
 		reward = -loss ### check sign
 		return reward, state
 		
-
-class State(object):
-	def __init__(self,gmm):
-
-		### Generate a point near the means?
-		self.point = np.random.rand(m)
 		
-		### Creating a session probably takes a lot of computation
-		sess = tf.Session() ### Should use the existing session - caused graph difficulties
-		
+class StateOps(object):
+	def __init__(self):
+	
 		##### Graph to compute the gradients #####
-		point_ = tf.placeholder(tf.float32, [m])
-		mean_vectors_ = tf.placeholder(tf.float32, [num_gaussians,m,1])
-		inv_cov_matrices_ = tf.placeholder(tf.float32, [num_gaussians,m,m])
+		self.point = tf.placeholder(tf.float32, [m])
+		self.mean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
+		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
 		
-		point = tf.reshape(point_, [1,m,1])
+		point = tf.reshape(self.point, [1,m,1])
 		point = tf.tile(point, multiples=[1,1,num_gaussians])
-		mean_vectors = tf.reshape(mean_vectors_, [1,m,num_gaussians])
+		mean_vectors = tf.reshape(self.mean_vectors, [1,m,num_gaussians])
 		d = point - mean_vectors # 1,m,num_gaussians
 
-		losses = tf.batch_matmul(tf.transpose(d,[2,0,1]),inv_cov_matrices_)
+		losses = tf.batch_matmul(tf.transpose(d,[2,0,1]),self.inv_cov_matrices)
 		# Follows the code in SciPy's multivariate_normal
 		losses = tf.square(losses) # element-wise (num_gaussians,1,m)
 		losses = tf.reduce_sum(losses,[2]) # Sum over the dimensions (num_gaussians,1)
@@ -91,12 +85,19 @@ class State(object):
 		
 		# The pdfs of the Gaussians are negative in order to create a minimization problem.
 		losses = -tf.exp(-0.5*losses)
-		losses = tf.reduce_mean(losses,[0]) # Average over the Gaussians
 		
-		grads = tf.gradients(losses,point_)[0]
+		grads = tf.gradients(losses,point)[0]
+		self.grads = tf.reduce_mean(grads,[2]) # Average over the Gaussians
+
 		
-		init = tf.initialize_all_variables()
-		sess.run(init)
+class State(object):
+	def __init__(self,gmm,state_ops,sess):
+
+		### Generate a point near the means?
+		self.point = np.random.rand(m)
 		
-		self.grads = sess.run([grads],feed_dict={point_:self.point, mean_vectors_:gmm.mean_vectors, inv_cov_matrices_:gmm.inv_cov_matrices})
+		self.grads = sess.run([state_ops.grads],
+								feed_dict={	state_ops.point:self.point, 
+											state_ops.mean_vectors:gmm.mean_vectors, 
+											state_ops.inv_cov_matrices:gmm.inv_cov_matrices})
 		self.grads = self.grads[0]

@@ -76,7 +76,7 @@ def train_function(parallel_index):
 			
 			
 with graph.as_default(), tf.Session() as sess:
-
+	
 	if use_rnn:
 		global_network = A3CRNN(num_trainable_vars)
 	else:
