@@ -27,7 +27,6 @@ class GMM(object):
 		
 		
 	def gmm_loss(self, points):
-		###assert len(points.shape) == 3
 		losses = []
 		for i in range(num_gaussians):
 			d = points - self.mean_vectors[i]

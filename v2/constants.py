@@ -4,7 +4,7 @@ import numpy as np
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
 log_file = 'tmp/a3c_log'
-summary_freq = 100
+summary_freq = 500
 
 ##### A3C constants #####
 num_threads = 8
@@ -12,8 +12,8 @@ local_t_max = 5 # repeat step size
 num_steps = 3 # Number of steps to go back for truncated backprop.
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
-initial_alpha_low = 1e-5    # log_uniform low limit for learning rate
-initial_alpha_high = 1e-5   # log_uniform high limit for learning rate
+initial_alpha_low = 1e-4   # log_uniform low limit for learning rate
+initial_alpha_high = 1e-4   # log_uniform high limit for learning rate
 initial_alpha_log_rate = 0.4226 # log_uniform interpolate rate for learning rate (around 7 * 10^-4) ### description is incorrect
 entropy_beta = 1e-4 # entropy regularization constant 0.0001
 max_time_steps = 5e7

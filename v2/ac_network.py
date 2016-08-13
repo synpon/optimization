@@ -31,8 +31,8 @@ class A3CNet(object):
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		#value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
-		#self.total_loss = policy_loss + value_loss
-		self.total_loss = -(tf.nn.l2_loss(self.mean - self.a) + entropy*entropy_beta)
+		#self.total_loss = policy_loss + value_loss 
+		self.total_loss = -(tf.nn.l2_loss(self.mean - self.a) + entropy*entropy_beta) ### Work out the formula properly
 
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
@@ -188,9 +188,9 @@ class A3CFF(A3CNet):
 		
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
-	def run_policy(self, sess, state):
-		state = np.reshape(state,[1,m,1])
-		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:state})
+	def run_policy(self, sess, grads):
+		grads = np.reshape(grads,[1,m,1])
+		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:grads})
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 
@@ -224,7 +224,7 @@ def scale_grads(input):
 	return input
 	
 	
-def inv_scale_grads(input):
+def inv_scale_grads(input): ### Doesn't work
 	if grad_scaling_method == 'scalar':
 		return input/tf.constant(grad_scaling_factor)	
 		

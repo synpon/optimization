@@ -127,6 +127,7 @@ class A3CTrainingthread(object):
 		#	R = self.local_network.run_value(sess, state, update_rnn_state=False) 
 		#else:
 		#	R = self.local_network.run_value(sess, state) 
+		#R = np.zeros(1,)
 
 		# Order from the final time point to the first
 		actions.reverse()
@@ -137,14 +138,14 @@ class A3CTrainingthread(object):
 		# compute and accumulate gradients
 		#for (a, r, state, V) in zip(actions, rewards, states, values):
 		for (a, r, state) in zip(actions, rewards, states):
-			#R = r + discount_rate * R
+			#R = r + discount_rate * R ### May just act like supervised learning without this
 			#td = R - V # temporal difference
 			#print_loss_components(a,td,self.local_network.variance,self.local_network.mean,r,V)
 			# grads is the state, here
 			sess.run(self.accum_gradients,
 								feed_dict = {
 									self.local_network.grads: np.reshape(state.grads,[1,m,1]),
-									self.local_network.a: a})#,
+									self.local_network.a: a})
 									#self.local_network.td: td,
 									#self.local_network.r: R})
 			 
