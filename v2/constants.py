@@ -30,7 +30,7 @@ num_rnn_layers = 1
 ##### GMM constants #####
 num_gaussians = 10 # 50 # Number of Gaussians
 m = 2 # 10 # Number of dimensions
-cov_range = [0,4] # 16 # Only the upper bound is used
+cov_range = [0,10] # 16 # Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 
@@ -42,5 +42,4 @@ p = 10.0
 termination_prob = 0.01
 
 # Random noise is computed each time the point is processed while training the opt net
-#loss_noise = False
-#loss_noise_size = 0.2 # Determines the size of the standard deviation. The mean is zero.
+grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.

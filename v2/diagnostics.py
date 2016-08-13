@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from constants import entropy_beta, m, num_gaussians, cov_range, weight_gaussians
+from constants import entropy_beta, m, num_gaussians, cov_range, weight_gaussians, grad_noise
 from gmm import GMM, StateOps
 
 # Percentage of zero losses 
@@ -33,15 +33,22 @@ def test_gmm_sgd():
 	
 	sess = tf.Session()
 	
-	for i in range(1000):
+	print "\nLoss \t\t Grad sizes"
 	
+	for i in range(1000):
 		losses = []
+		grad_sizes = []
 	
 		grads = sess.run([state_ops.grads],
 								feed_dict={	state_ops.point:point, 
 											state_ops.mean_vectors:gmm.mean_vectors, 
 											state_ops.inv_cov_matrices:gmm.inv_cov_matrices})
-		grads = np.reshape(grads[0],[m,])	
+		grads = np.reshape(grads[0],[m,])
+		
+		if grad_noise > 0:
+			grads += np.abs(grads)*grad_noise*np.random.random((m))
+		
+		grad_sizes.append(np.mean(abs(grads)))
 		
 		point += -0.1*grads
 		
@@ -49,8 +56,9 @@ def test_gmm_sgd():
 		losses.append(loss)
 		
 		if i % 100 == 0:
-			print "Loss: ", np.mean(losses)
+			print "{:4f} \t {:4f}".format(np.mean(losses), np.mean(grad_sizes))
 			losses = []
+			grad_sizes = []
 
 
 if __name__ == "__main__":
