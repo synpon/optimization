@@ -66,7 +66,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		#values = []
+		values = []
 		
 		terminal_end = False
 		
@@ -82,6 +82,7 @@ class A3CTrainingthread(object):
 		state = State(self.gmm,self.state_ops,sess) # Generate a new starting point in the landscape
 
 		discounted_reward = 0
+		value_ = 1.0
 		
 		for i in range(local_t_max):
 			if use_rnn:
@@ -93,13 +94,15 @@ class A3CTrainingthread(object):
 			states.append(state)
 			actions.append(action)
 			
-			#if use_rnn:
+			if use_rnn:
 				# Do not update the state again
-			#	value_ = self.local_network.run_value(sess, state, update_rnn_state=False)
-			#else:
-			#	value_ = self.local_network.run_value(sess, state)
+				v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
+			else:
+				v = self.local_network.run_value(sess, state.grads, action)
 				
-			#values.append(value_)
+			### how to deal with negative numbers?
+			value_ *= v ### check shouldn't be plus
+			values.append(value_)
 
 			# State is the point, action is the update
 			reward, next_state = self.gmm.act(state,action)
@@ -122,32 +125,33 @@ class A3CTrainingthread(object):
 					self.local_network.reset_rnn_state(1,m)
 				break
 
+		### No associated action here - how to compute value?
 		#if use_rnn:
 			# Do not update the state again
-		#	R = self.local_network.run_value(sess, state, update_rnn_state=False) 
+		#	v = self.local_network.run_value(sess, state, update_rnn_state=False) 
 		#else:
-		#	R = self.local_network.run_value(sess, state) 
-		#R = np.zeros(1,)
+		#	v = self.local_network.run_value(sess, state)
+		R = 0.0 #value_*v
 
 		# Order from the final time point to the first
 		actions.reverse()
 		states.reverse()
 		rewards.reverse()
-		#values.reverse()
+		values.reverse()
 		
 		# compute and accumulate gradients
-		#for (a, r, state, V) in zip(actions, rewards, states, values):
-		for (a, r, state) in zip(actions, rewards, states):
-			#R = r + discount_rate * R ### May just act like supervised learning without this
-			#td = R - V # temporal difference
-			#print_loss_components(a,td,self.local_network.variance,self.local_network.mean,r,V)
+		for (a, r, state, V) in zip(actions, rewards, states, values):
+			R = r + discount_rate * R
+			td = R - V # temporal difference
+			
 			# grads is the state, here
 			sess.run(self.accum_gradients,
 								feed_dict = {
 									self.local_network.grads: np.reshape(state.grads,[1,m,1]),
-									self.local_network.a: a})
-									#self.local_network.td: td,
-									#self.local_network.r: R})
+									self.local_network.update: np.reshape(a,[1,m,1]),
+									self.local_network.a: a,
+									self.local_network.td: [td],
+									self.local_network.r: [R]})
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 

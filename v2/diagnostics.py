@@ -51,6 +51,7 @@ def test_gmm_sgd():
 		grad_sizes.append(np.mean(abs(grads)))
 		
 		point += -0.1*grads
+		### Try an Adam version, which should work in all cases, given a sufficiently high dimensionality and no plateaus
 		
 		loss = gmm.gmm_loss(np.reshape(point,(m,1)))
 		losses.append(loss)

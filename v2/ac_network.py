@@ -15,7 +15,7 @@ class A3CNet(object):
 		self.a = tf.placeholder(tf.float32, [1,m,1], 'a')
 	
 		# Temporal difference (R-V) (input for policy)
-		#self.td = tf.placeholder(tf.float32, [1], 'td')
+		self.td = tf.placeholder(tf.float32, [1], 'td')
 		
 		# Entropy of the policy
 		entropy = -0.5*tf.log(2*3.14*self.variance) + 1 ### Treat dimensions of variance differently?
@@ -23,16 +23,16 @@ class A3CNet(object):
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
-		#policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta) ### Confirm use of L2 loss
+		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
 		### Print relative magnitudes, including the value loss
 		# R (input for value)
-		#self.r = tf.placeholder(tf.float32, [1], 'r')
+		self.r = tf.placeholder(tf.float32, [1], 'r')
 
 		# Learning rate for critic is half of actor's, so multiply by 0.5
-		#value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
+		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
-		#self.total_loss = policy_loss + value_loss 
-		self.total_loss = -(tf.nn.l2_loss(self.mean - self.a) + entropy*entropy_beta) ### Work out the formula properly
+		self.total_loss = policy_loss + value_loss
+		
 
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
@@ -155,7 +155,8 @@ class A3CFF(A3CNet):
 	
 		# Input
 		batch_size = 1
-		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
+		self.grads = tf.placeholder(tf.float32, [batch_size,m,1], 'grads')
+		self.update = tf.placeholder(tf.float32, [batch_size,m,1], 'update') # Coordinate update
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
@@ -171,17 +172,19 @@ class A3CFF(A3CNet):
 				self.b2 = self.bias_vector(1,1)
 			
 			# weights for value output layer
-			#with tf.variable_scope("value"):
-			#	self.W3 = self.weight_matrix(1,1)
-			#	self.W3 = tf.tile(self.W3,(batch_size,1,1))
-			#	self.b3 = self.bias_vector(1,1)
+			with tf.variable_scope("value"):
+				self.W3 = self.weight_matrix(2,1)
+				self.W3 = tf.tile(self.W3,(batch_size,1,1))
+				self.b3 = self.bias_vector(2,1)
 
 		# policy
 		self.mean = tf.batch_matmul(grads, self.W1) + self.b1
 		self.variance = tf.nn.softplus(tf.batch_matmul(grads, self.W2) + self.b2)
 		
 		# value - linear output layer
-		#self.v = tf.batch_matmul(state, self.W3) + self.b3
+		grads_and_update = tf.concat(2, [self.grads, self.update])
+		v = tf.batch_matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
+		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:
 			num_trainable_vars[0] = len(tf.trainable_variables())
@@ -194,9 +197,11 @@ class A3CFF(A3CNet):
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 
-	#def run_value(self, sess, state):
-	#	v_out = sess.run(self.v, feed_dict={self.state:state})
-	#	return v_out[0][0] # output is scalar
+	def run_value(self, sess, grads, update):
+		grads = np.reshape(grads,[1,m,1])
+		update = np.reshape(update,[1,m,1])
+		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
+		return v_out # output is a scalar
 		
 		
 def scale_grads(input):

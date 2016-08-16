@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from constants import m, num_gaussians, cov_range, weight_gaussians
+from constants import m, num_gaussians, cov_range, weight_gaussians, grad_noise
 from ac_network import inv_scale_grads
 
 class GMM(object):
@@ -100,3 +100,6 @@ class State(object):
 											state_ops.mean_vectors:gmm.mean_vectors, 
 											state_ops.inv_cov_matrices:gmm.inv_cov_matrices})
 		self.grads = self.grads[0]
+		
+		if grad_noise > 0:
+			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m))
