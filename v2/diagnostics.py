@@ -4,6 +4,23 @@ import numpy as np
 from constants import entropy_beta, m, num_gaussians, cov_range, weight_gaussians, grad_noise
 from gmm import GMM, StateOps
 
+class SGD(object):
+	def __init__(self):
+		self.lr = 0.1
+		
+		
+class Adam(object):
+	def __init__(self):
+		self.lr = 0.001
+		self.beta1 = 0.9
+		self.beta2 = 0.999
+		self.epsilon = 1e-8
+		
+sgd = SGD()
+adam = Adam()
+
+sess = tf.Session()
+
 # Percentage of zero losses 
 def gmm_zeros(gmm):
 	n = 1000
@@ -24,18 +41,18 @@ def gmm_zeros(gmm):
 	print "Zeros: ", np.mean(z)
 	
 	
-def test_gmm_sgd():
+def optimize(point, gmm, optimizer):
+	print "\nLoss \t\t Grad sizes"	
+	M = [0]
+	V = [0]
+	
 	gmm = GMM()
 	gmm_zeros(gmm)
 	
 	point = np.random.rand(m)
 	state_ops = StateOps()
 	
-	sess = tf.Session()
-	
-	print "\nLoss \t\t Grad sizes"
-	
-	for i in range(1000):
+	for i in range(1,1000):
 		losses = []
 		grad_sizes = []
 	
@@ -50,8 +67,22 @@ def test_gmm_sgd():
 		
 		grad_sizes.append(np.mean(abs(grads)))
 		
-		point += -0.1*grads
-		### Try an Adam version, which should work in all cases, given a sufficiently high dimensionality and no plateaus
+		if optimizer == 'sgd':
+			point += -sgd.lr*grads
+			
+		elif optimizer == 'adam': ### doesn't work
+			t = i
+			lr_t = adam.lr
+			lr_t *= np.sqrt(1 - np.power(adam.beta2,t))
+			lr_t /= (1 - np.power(adam.beta1,t))
+
+			m_t = adam.beta1 * M[t-1] + (1 - adam.beta1) * grads
+			M.append(m_t)
+			### the in-built power function may be wrong  - http://stackoverflow.com/questions/28745909/neither-builtin-power-function-nor-np-power-works
+			v_t = adam.beta2 * V[t-1] + (1 - adam.beta2) * grads * grads
+			V.append(v_t)
+
+			point += - lr_t * m_t / (np.sqrt(v_t) + adam.epsilon)	
 		
 		loss = gmm.gmm_loss(np.reshape(point,(m,1)))
 		losses.append(loss)
@@ -60,7 +91,20 @@ def test_gmm_sgd():
 			print "{:4f} \t {:4f}".format(np.mean(losses), np.mean(grad_sizes))
 			losses = []
 			grad_sizes = []
+			
+			
+def main():
+	gmm = GMM()
+	gmm_zeros(gmm)
+	
+	point = np.random.rand(m)
+
+	print "\nOptimizing with SGD"
+	optimize(point,gmm,'sgd')
+	
+	print "\nOptimizing with Adam"
+	optimize(point,gmm,'adam')
 
 
 if __name__ == "__main__":
-	test_gmm_sgd()
+	main()
