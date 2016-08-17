@@ -99,9 +99,8 @@ class A3CTrainingthread(object):
 				v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
 			else:
 				v = self.local_network.run_value(sess, state.grads, action)
-				
-			### how to deal with negative numbers?
-			value_ *= v ### check shouldn't be plus
+
+			value_ *= v
 			values.append(value_)
 
 			# State is the point, action is the update

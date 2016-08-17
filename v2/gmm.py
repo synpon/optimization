@@ -57,7 +57,7 @@ class GMM(object):
 		action = np.reshape(action,[m])
 		state.point += action
 		loss = self.gmm_loss(np.reshape(state.point,[1,m,1]))
-		reward = -loss ### check sign
+		reward = -loss
 		return reward, state
 		
 		

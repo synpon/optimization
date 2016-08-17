@@ -23,14 +23,14 @@ discount_rate = 0.99
 ##### Opt net constants #####
 use_rnn = False # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[1]
+rnn_type = rnn_types[0]
 rnn_size = 2
 num_rnn_layers = 1
 
 ##### GMM constants #####
-num_gaussians = 10 # 50 # Number of Gaussians
+num_gaussians = 1 # 50 # Number of Gaussians
 m = 2 # 10 # Number of dimensions
-cov_range = [0,10] # 16 # Only the upper bound is used
+cov_range = [0,20] # 16 # Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
 weight_gaussians = False
 

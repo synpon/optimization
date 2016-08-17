@@ -83,6 +83,7 @@ class A3CRNN(A3CNet):
 		# Input
 		batch_size = 1
 		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
+		self.update = tf.placeholder(tf.float32, [batch_size,m,1], 'update') # Coordinate update
 		
 		grads = scale_grads(self.grads)
 
@@ -95,9 +96,9 @@ class A3CRNN(A3CNet):
 		self.b2 = self.bias_vector(1,1)
 		
 		# Weights for value output layer
-		#self.W3 = self.weight_matrix(rnn_size,1)
-		#self.W3 = tf.tile(self.W3,(batch_size,1,1))
-		#self.b3 = self.bias_vector(1,1)
+		self.W3 = self.weight_matrix(2*rnn_size,1)
+		self.W3 = tf.tile(self.W3,(batch_size,1,1))
+		self.b3 = self.bias_vector(2,1)
 		
 		if rnn_type == 'rnn':
 			self.cell = rnn_cell.BasicRNNCell(rnn_size)
@@ -106,7 +107,6 @@ class A3CRNN(A3CNet):
 		elif rnn_type == 'lstm':
 			self.cell = rnn_cell.BasicLSTMCell(rnn_size)
 
-		### Redo in the style of miyosuda's implementation?
 		self.rnn_state = tf.zeros([1,m,rnn_size]) 
 
 		if rnn_type == 'lstm':
@@ -120,7 +120,9 @@ class A3CRNN(A3CNet):
 		self.variance = tf.nn.softplus(tf.batch_matmul(output, self.W2) + self.b2)
 		
 		# value - linear output layer
-		#self.v = tf.batch_matmul(output, self.W3) + self.b3
+		grads_and_update = tf.concat(2, [self.grads, self.update])
+		v = tf.batch_matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
+		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:
 			num_trainable_vars[0] = len(tf.trainable_variables())
@@ -135,12 +137,14 @@ class A3CRNN(A3CNet):
 		if update_rnn_state:
 			self.rnn_state = rnn_state
 		return mean, variance
-		
-	#def run_value(self, sess, state, update_rnn_state):
-	#	[v_out, rnn_state] = sess.run([self.v, self.rnn_state_out], feed_dict = {self.state: state})
-	#	if update_rnn_state:
-	#		self.rnn_state = rnn_state	
-	#	return v_out[0][0]
+	
+	def run_value(self, sess, grads, update):
+		grads = np.reshape(grads,[1,m,1])
+		update = np.reshape(update,[1,m,1])
+		[v_out,rnn_state] = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})		
+		if update_rnn_state:
+			self.rnn_state = rnn_state	
+		return np.abs(v_out) # output is a scalar ### use exp to remove negatives instead?
 		
 	def reset_rnn_state(self, batch_size, num_params):
 		self.rnn_state = tf.zeros([batch_size,num_params,rnn_size]) ### tensorflow (may need to be run) or numpy?
@@ -201,7 +205,7 @@ class A3CFF(A3CNet):
 		grads = np.reshape(grads,[1,m,1])
 		update = np.reshape(update,[1,m,1])
 		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
-		return v_out # output is a scalar
+		return np.abs(v_out) # output is a scalar ### use exp to remove negatives instead?
 		
 		
 def scale_grads(input):

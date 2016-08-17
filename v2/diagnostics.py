@@ -43,14 +43,11 @@ def gmm_zeros(gmm):
 	
 def optimize(point, gmm, optimizer):
 	print "\nLoss \t\t Grad sizes"	
-	M = [0]
-	V = [0]
+	M = np.zeros_like(point)
+	V = np.zeros_like(point)
 	
-	gmm = GMM()
-	gmm_zeros(gmm)
-	
-	point = np.random.rand(m)
 	state_ops = StateOps()
+	start_loss = None
 	
 	for i in range(1,1000):
 		losses = []
@@ -76,21 +73,25 @@ def optimize(point, gmm, optimizer):
 			lr_t *= np.sqrt(1 - np.power(adam.beta2,t))
 			lr_t /= (1 - np.power(adam.beta1,t))
 
-			m_t = adam.beta1 * M[t-1] + (1 - adam.beta1) * grads
-			M.append(m_t)
-			### the in-built power function may be wrong  - http://stackoverflow.com/questions/28745909/neither-builtin-power-function-nor-np-power-works
-			v_t = adam.beta2 * V[t-1] + (1 - adam.beta2) * grads * grads
-			V.append(v_t)
-
-			point += - lr_t * m_t / (np.sqrt(v_t) + adam.epsilon)	
+			# Copied from the Chainer implementation
+			M += (1 - adam.beta1) * (grads - M)
+			V += (1 - adam.beta2) * (grads * grads - V)
+			point -= lr_t * M / (np.sqrt(V) + adam.epsilon)			
 		
 		loss = gmm.gmm_loss(np.reshape(point,(m,1)))
 		losses.append(loss)
 		
+		if i == 1:
+			start_loss = loss
+		
 		if i % 100 == 0:
-			print "{:4f} \t {:4f}".format(np.mean(losses), np.mean(grad_sizes))
+			print "{:4g} \t {:4g}".format(np.mean(losses), np.mean(grad_sizes))
 			losses = []
 			grad_sizes = []
+			
+	loss_change = loss - start_loss
+	print "Total change in loss: ", loss_change
+	print "Relative change magnitude: ", np.abs(loss_change)/np.abs(start_loss)
 			
 			
 def main():
