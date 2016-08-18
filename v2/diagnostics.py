@@ -71,7 +71,7 @@ def optimize(point, gmm, optimizer):
 		if optimizer == 'sgd':
 			point += -sgd.lr*grads
 			
-		elif optimizer == 'adam': ### doesn't work
+		elif optimizer == 'adam':
 			t = i
 			lr_t = adam.lr
 			lr_t *= np.sqrt(1 - np.power(adam.beta2,t))

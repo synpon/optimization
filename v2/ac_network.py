@@ -18,13 +18,13 @@ class A3CNet(object):
 		self.td = tf.placeholder(tf.float32, [1], 'td')
 		
 		# Entropy of the policy
-		entropy = -0.5*tf.log(2*3.14*self.variance) + 1 ### Treat dimensions of variance differently?
+		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
-		policy_loss = -(tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
-		### Print relative magnitudes, including the value loss
+		policy_loss = (tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
+
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [1], 'r')
 
@@ -147,7 +147,7 @@ class A3CRNN(A3CNet):
 		return np.abs(v_out) # output is a scalar ### use exp to remove negatives instead?
 		
 	def reset_rnn_state(self, batch_size, num_params):
-		self.rnn_state = tf.zeros([batch_size,num_params,rnn_size]) ### tensorflow (may need to be run) or numpy?
+		self.rnn_state = np.zeros([batch_size,num_params,rnn_size])
 		
 		if rnn_type == 'lstm':
 			raise NotImplementedError

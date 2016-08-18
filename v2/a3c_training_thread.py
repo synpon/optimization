@@ -112,7 +112,6 @@ class A3CTrainingthread(object):
 			self.local_t += 1
 			state = next_state
 
-			### Terminate after a set number of time steps instead?
 			terminal = random.random() < termination_prob
 				
 			if terminal: 

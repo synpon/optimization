@@ -1,7 +1,8 @@
 import tensorflow as tf
 import numpy as np
+import random
 
-from constants import m, num_gaussians, cov_range, weight_gaussians, grad_noise
+from constants import m, num_gaussians, cov_range, weight_gaussians, grad_noise, points_centrality
 from ac_network import inv_scale_grads
 
 class GMM(object):
@@ -9,7 +10,9 @@ class GMM(object):
 		
 		self.mean_vectors = []
 		self.inv_cov_matrices = []
-		self.gaussian_weights = np.random.rand(num_gaussians)
+		
+		# Exponentiation increases the inequality in the distribution of weights
+		self.gaussian_weights = np.power(np.random.rand(num_gaussians),1)
 		
 		for i in range(num_gaussians):
 			self.mean_vectors.append(np.random.rand(m,1))
@@ -44,10 +47,12 @@ class GMM(object):
 		
 		
 	def gen_points(self,num_points):
-		### Use points near the means?
-		point = np.random.rand(m*num_points)
-		point = np.reshape(point,[1,m,num_points])
-		return point
+		centres = np.array([random.choice(self.mean_vectors) for i in range(num_points)])
+		centres = np.swapaxes(centres,0,2)
+		noise = np.random.rand(m*num_points) - 0.5
+		noise = np.reshape(noise,[1,m,num_points])
+		points = points_centrality*centres + (1-points_centrality)*noise
+		return points
 		
 		
 	def choose_action(self,mean,variance):
@@ -69,7 +74,7 @@ class GMM(object):
 class StateOps(object):
 	def __init__(self):
 	
-		##### Graph to compute the gradients #####
+		#===# Graph to compute the gradients #===#
 		self.point = tf.placeholder(tf.float32, [m])
 		self.mean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
 		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
@@ -98,8 +103,8 @@ class StateOps(object):
 class State(object):
 	def __init__(self,gmm,state_ops,sess):
 
-		### Generate a point near the means?
-		self.point = np.random.rand(m)
+		point = gmm.gen_points(1)
+		self.point = np.reshape(point,[m])
 		
 		self.grads = sess.run([state_ops.grads],
 								feed_dict={	state_ops.point:self.point, 
