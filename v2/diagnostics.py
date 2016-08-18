@@ -52,11 +52,15 @@ def optimize(point, gmm, optimizer):
 	for i in range(1,1000):
 		losses = []
 		grad_sizes = []
+		
+		feed_dict = {state_ops.point: point, 
+					state_ops.mean_vectors: gmm.mean_vectors, 
+					state_ops.inv_cov_matrices: gmm.inv_cov_matrices}
+					
+		if weight_gaussians:
+			feed_dict[state_ops.gaussian_weights] = gmm.gaussian_weights
 	
-		grads = sess.run([state_ops.grads],
-								feed_dict={	state_ops.point:point, 
-											state_ops.mean_vectors:gmm.mean_vectors, 
-											state_ops.inv_cov_matrices:gmm.inv_cov_matrices})
+		grads = sess.run([state_ops.grads],feed_dict=feed_dict)
 		grads = np.reshape(grads[0],[m,])
 		
 		if grad_noise > 0:

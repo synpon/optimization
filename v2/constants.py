@@ -32,14 +32,14 @@ num_gaussians = 1 # 50 # Number of Gaussians
 m = 2 # 10 # Number of dimensions
 cov_range = [0,20] # 16 # Only the upper bound is used
 cov_range[1] *= np.sqrt(m)
-weight_gaussians = False
+weight_gaussians = True
 
 grad_scaling_methods = ['none','scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
-termination_prob = 0.01
+termination_prob = 0.003
 
 # Random noise is computed each time the point is processed while training the opt net
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.

@@ -5,8 +5,8 @@ import random
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
 from gmm import GMM, State, StateOps
-from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate#, termination_prob
-termination_prob = 0.01
+from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, termination_prob
+
 
 class A3CTrainingthread(object):
 	def __init__(self,

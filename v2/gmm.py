@@ -9,6 +9,7 @@ class GMM(object):
 		
 		self.mean_vectors = []
 		self.inv_cov_matrices = []
+		self.gaussian_weights = np.random.rand(num_gaussians)
 		
 		for i in range(num_gaussians):
 			self.mean_vectors.append(np.random.rand(m,1))
@@ -34,6 +35,10 @@ class GMM(object):
 			loss = np.dot(d,self.inv_cov_matrices[i])
 			loss = np.square(loss)
 			loss = -np.exp(-0.5*loss)
+			
+			if weight_gaussians:
+				loss *= self.gaussian_weights[i]
+				
 			losses.append(loss)
 		return np.mean(losses)
 		
@@ -68,6 +73,7 @@ class StateOps(object):
 		self.point = tf.placeholder(tf.float32, [m])
 		self.mean_vectors = tf.placeholder(tf.float32, [num_gaussians,m,1])
 		self.inv_cov_matrices = tf.placeholder(tf.float32, [num_gaussians,m,m])
+		self.gaussian_weights = tf.placeholder_with_default(tf.ones([num_gaussians],tf.float32), [num_gaussians])
 		
 		point = tf.reshape(self.point, [1,m,1])
 		point = tf.tile(point, multiples=[1,1,num_gaussians])
@@ -80,7 +86,7 @@ class StateOps(object):
 		losses = tf.reduce_sum(losses,[2]) # Sum over the dimensions (num_gaussians,1)
 		
 		if weight_gaussians:
-			raise NotImplementedError
+			losses *= self.gaussian_weights
 		
 		# The pdfs of the Gaussians are negative in order to create a minimization problem.
 		losses = -tf.exp(-0.5*losses)
