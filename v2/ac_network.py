@@ -23,6 +23,7 @@ class A3CNet(object):
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
+		### Find the wrong minus sign within this so the minus can be put back here
 		policy_loss = (tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
 
 		# R (input for value)
@@ -85,7 +86,7 @@ class A3CRNN(A3CNet):
 		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
 		self.update = tf.placeholder(tf.float32, [batch_size,m,1], 'update') # Coordinate update
 		
-		grads = scale_grads(self.grads)
+		grads = scale_grads(self.grads) ### Add inverse scaling
 
 		self.W1 = self.weight_matrix(rnn_size,1)
 		self.W1 = tf.tile(self.W1,(batch_size,1,1))
@@ -96,9 +97,9 @@ class A3CRNN(A3CNet):
 		self.b2 = self.bias_vector(1,1)
 		
 		# Weights for value output layer
-		self.W3 = self.weight_matrix(2*rnn_size,1)
+		self.W3 = self.weight_matrix(rnn_size,1)
 		self.W3 = tf.tile(self.W3,(batch_size,1,1))
-		self.b3 = self.bias_vector(2,1)
+		self.b3 = self.bias_vector(1,1)
 		
 		if rnn_type == 'rnn':
 			self.cell = rnn_cell.BasicRNNCell(rnn_size)
@@ -132,23 +133,24 @@ class A3CRNN(A3CNet):
 			
 	def run_policy(self, sess, state, update_rnn_state):
 		state = np.reshape(state,[1,m,1])
-		mean, variance, rnn_state = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.grads:state})
+		[mean, variance, rnn_state] = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.grads:state})
 		variance = np.maximum(variance,0.01)	
 		if update_rnn_state:
 			self.rnn_state = rnn_state
 		return mean, variance
 	
-	def run_value(self, sess, grads, update):
+	
+	def run_value(self, sess, grads, update, update_rnn_state):
 		grads = np.reshape(grads,[1,m,1])
 		update = np.reshape(update,[1,m,1])
-		[v_out,rnn_state] = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})		
+		[v_out, rnn_state] = sess.run([self.v, self.rnn_state_out], feed_dict={self.grads:grads, self.update:update})		
 		if update_rnn_state:
 			self.rnn_state = rnn_state	
-		return np.abs(v_out) # output is a scalar ### use exp to remove negatives instead?
+		return np.abs(v_out) # output is a scalar
+		
 		
 	def reset_rnn_state(self, batch_size, num_params):
-		self.rnn_state = np.zeros([batch_size,num_params,rnn_size])
-		
+		self.rnn_state = np.zeros([batch_size,num_params,rnn_size])		
 		if rnn_type == 'lstm':
 			raise NotImplementedError
 		
@@ -205,7 +207,7 @@ class A3CFF(A3CNet):
 		grads = np.reshape(grads,[1,m,1])
 		update = np.reshape(update,[1,m,1])
 		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
-		return np.abs(v_out) # output is a scalar ### use exp to remove negatives instead?
+		return np.abs(v_out) # output is a scalar
 		
 		
 def scale_grads(input):
