@@ -45,15 +45,9 @@ class MLP:
 		self.init = tf.initialize_all_variables()
 	
 		##### Opt net #####
-		input = self.grads
-		input = tf.reshape(input,[1,-1,1]) ### check
+		input = tf.reshape(self.grads,[1,-1,1]) ### check ### not used
 
-		if use_rnn:
-			output, rnn_state_out = opt_net.cell(input, opt_net.rnn_state)
-			opt_net.rnn_state = rnn_state_out
-			updates = tf.batch_matmul(output, opt_net.W1) + opt_net.b1
-		else: # Feedforward
-			updates = tf.batch_matmul(input, opt_net.W1) + opt_net.b1
+		updates = opt_net.mean
 		
 		# Apply updates to the parameters in the train net.
 		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, updates)

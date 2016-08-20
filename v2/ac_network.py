@@ -114,6 +114,7 @@ class A3CRNN(A3CNet):
 			raise NotImplementedError
 		
 		output,rnn_state_out = self.cell(grads, self.rnn_state)
+		self.output = output
 		self.rnn_state_out = rnn_state_out
 	
 		# policy

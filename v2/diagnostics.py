@@ -1,8 +1,10 @@
+from __future__ import division
+
 import tensorflow as tf
 import numpy as np
 
 from constants import entropy_beta, m, num_gaussians, cov_range, weight_gaussians, grad_noise
-from gmm import GMM, StateOps
+from snf import SNF, StateOps
 
 class SGD(object):
 	def __init__(self):
@@ -22,26 +24,16 @@ adam = Adam()
 sess = tf.Session()
 
 # Percentage of zero losses 
-def gmm_zeros(gmm):
+def proportion_zeros(snf):
 	n = 1000
-	points = gmm.gen_points(n)
-	
-	losses = []
-	for i in range(num_gaussians):
-		d = points - gmm.mean_vectors[i]
-		d = np.reshape(d,(n,m))
-		loss = np.dot(d, gmm.inv_cov_matrices[i])
-		loss = np.square(loss)
-		loss = -np.exp(-0.5*loss)
-		losses.append(loss)
-		
-	losses = np.array(losses)
+	points = snf.gen_points(n)
+	losses = snf.snf_loss(points)
 	z = np.zeros_like(losses)
 	z = np.equal(z,losses).astype(int)
 	print "Zeros: ", np.mean(z)
 	
 	
-def optimize(point, gmm, optimizer):
+def optimize(point, snf, optimizer):
 	print "\nLoss \t\t Grad sizes"	
 	M = np.zeros_like(point)
 	V = np.zeros_like(point)
@@ -49,22 +41,21 @@ def optimize(point, gmm, optimizer):
 	state_ops = StateOps()
 	start_loss = None
 	
+	# Run SGD or Adam for 1000 steps
 	for i in range(1,1000):
 		losses = []
 		grad_sizes = []
 		
 		feed_dict = {state_ops.point: point, 
-					state_ops.mean_vectors: gmm.mean_vectors, 
-					state_ops.inv_cov_matrices: gmm.inv_cov_matrices}
-					
-		if weight_gaussians:
-			feed_dict[state_ops.gaussian_weights] = gmm.gaussian_weights
-	
+					state_ops.means: snf.means, 
+					state_ops.variances: snf.variances,
+					state_ops.weights: snf.weights}
 		grads = sess.run([state_ops.grads],feed_dict=feed_dict)
-		grads = np.reshape(grads[0],[m,])
+		
+		grads = np.reshape(grads[0],[m,1]) ### why?
 		
 		if grad_noise > 0:
-			grads += np.abs(grads)*grad_noise*np.random.random((m))
+			grads += np.abs(grads)*grad_noise*np.random.random((m,1))
 		
 		grad_sizes.append(np.mean(abs(grads)))
 		
@@ -82,7 +73,7 @@ def optimize(point, gmm, optimizer):
 			V += (1 - adam.beta2) * (grads * grads - V)
 			point -= lr_t * M / (np.sqrt(V) + adam.epsilon)			
 		
-		loss = gmm.gmm_loss(np.reshape(point,(m,1)))
+		loss = snf.snf_loss(np.reshape(point,(m,1)))
 		losses.append(loss)
 		
 		if i == 1:
@@ -99,16 +90,17 @@ def optimize(point, gmm, optimizer):
 			
 			
 def main():
-	gmm = GMM()
-	gmm_zeros(gmm)
+	snf = SNF()
+	proportion_zeros(snf)
 	
-	point = np.random.rand(m)
+	point = np.random.rand(m,1)
 
 	print "\nOptimizing with SGD"
-	optimize(point,gmm,'sgd')
+	optimize(point,snf,'sgd') ### changes point?
 	
+	point = np.random.rand(m,1)
 	print "\nOptimizing with Adam"
-	optimize(point,gmm,'adam')
+	optimize(point,snf,'adam')
 
 
 if __name__ == "__main__":
