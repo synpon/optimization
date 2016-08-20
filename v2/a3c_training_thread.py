@@ -4,7 +4,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
-from gmm import GMM, State, StateOps
+from snf import SNF, State, StateOps
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, termination_prob
 
 
@@ -18,14 +18,14 @@ class A3CTrainingthread(object):
 			 grad_applier,
 			 max_global_time_step,
 			 num_trainable_vars,
-			 gmm):
+			 snf):
 			 
 		# All ops to be executed in a thread must be defined here since tf.Graph is not thread-safe.
 		
 		self.thread_index = thread_index
 		self.learning_rate_input = learning_rate_input
 		self.max_global_time_step = max_global_time_step
-		self.gmm = gmm
+		self.snf = snf
 		self.episode_reward = 0
 		
 		if use_rnn:
@@ -79,7 +79,7 @@ class A3CTrainingthread(object):
 		sess.run(self.sync)
 		start_local_t = self.local_t
 		
-		state = State(self.gmm,self.state_ops,sess) # Generate a new starting point in the landscape
+		state = State(self.snf,self.state_ops,sess) # Generate a new starting point in the landscape
 
 		discounted_reward = 0
 		value_ = 1.0
@@ -90,7 +90,7 @@ class A3CTrainingthread(object):
 			else:
 				mean,variance = self.local_network.run_policy(sess, state.grads)
 
-			action = self.gmm.choose_action(mean,variance) # Calculate update
+			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
 			
@@ -104,7 +104,7 @@ class A3CTrainingthread(object):
 			values.append(value_)
 
 			# State is the point, action is the update
-			reward, next_state = self.gmm.act(state,action)
+			reward, next_state = self.snf.act(state,action)
 			
 			self.episode_reward += reward
 			rewards.append(reward)
@@ -118,7 +118,7 @@ class A3CTrainingthread(object):
 				terminal_end = True
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
-				state = State(self.gmm,self.state_ops,sess)
+				state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state(1,m)
 				break
@@ -145,8 +145,8 @@ class A3CTrainingthread(object):
 			# grads is the state, here
 			sess.run(self.accum_gradients,
 								feed_dict = {
-									self.local_network.grads: np.reshape(state.grads,[1,m,1]),
-									self.local_network.update: np.reshape(a,[1,m,1]),
+									self.local_network.grads: state.grads,
+									self.local_network.update: a,
 									self.local_network.a: a,
 									self.local_network.td: [td],
 									self.local_network.r: [R]})

@@ -3,7 +3,7 @@ from __future__ import division ### Ensure this is used everywhere where necessa
 import tensorflow as tf
 import numpy as np
 
-from constants import m, grad_noise
+from constants import m, alpha, var_size, grad_noise
 from ac_network import inv_scale_grads
 
 
@@ -12,13 +12,11 @@ class SNF(object):
 		self.means = np.random.rand(m)
 		self.means = np.reshape(self.means,[m,1])
 		
-		self.variances = np.random.rand(m)*0.2 ### Put the 0.2 in constants
+		self.variances = np.random.rand(m)*var_size
 		self.variances = np.reshape(self.variances,[m,1])
 		
 		self.weights = np.random.rand(m)
 		self.weights = np.reshape(self.weights,[m,1])
-		
-		self.alpha = 0.5 # Weight for combining multiplication and addition
 		
 		
 	def snf_loss(self, points):
@@ -34,7 +32,7 @@ class SNF(object):
 		
 		mean = np.mean(losses,axis=0)/m # Average over the dimensions
 		geom_mean = np.power(np.prod(losses,axis=0),1/m) # Average over the dimensions
-		losses = self.alpha*mean + (1-self.alpha)*geom_mean		
+		losses = alpha*mean + (1-alpha)*geom_mean		
 		return np.mean(losses)
 		
 		
@@ -52,10 +50,11 @@ class SNF(object):
 		return mean
 	
 	
-	def act(self, state, action):	
-		action = np.reshape(action,[m])
+	def act(self, state, action):
+		#action = np.reshape(action,[m])
 		state.point += action
-		loss = self.snf_loss(np.reshape(state.point,[1,m,1]))
+		#loss = self.snf_loss(np.reshape(state.point,[1,m,1]))
+		loss = self.snf_loss(state.point)
 		reward = -loss
 		return reward, state
 		
@@ -68,7 +67,6 @@ class StateOps(object):
 		self.means = tf.placeholder(tf.float32, [m,1])
 		self.variances = tf.placeholder(tf.float32, [m,1])
 		self.weights = tf.placeholder(tf.float32, [m,1])
-		self.alpha = 0.5 ### import it from constants
 		
 		losses = self.point - self.means
 		losses = tf.square(losses)
@@ -80,21 +78,23 @@ class StateOps(object):
 		
 		mean = tf.reduce_mean(losses,reduction_indices=[0])/m # Mean over the dimensions
 		geom_mean = tf.pow(tf.reduce_prod(losses,reduction_indices=[0]),1/m) # Geometric mean over the dimensions
-		loss = self.alpha*mean + (1-self.alpha)*geom_mean		
+		loss = alpha*mean + (1-alpha)*geom_mean		
 		
 		self.grads = tf.gradients(loss,self.point)[0]
 		self.grads = tf.reshape(self.grads,[m,1])
 		
 		
 class State(object):
-	def __init__(self,snf,state_ops,sess):
+	def __init__(self, snf, state_ops, sess):
 
-		point = snf.gen_points(1)
-		self.point = np.reshape(point,[m])
+		self.point = snf.gen_points(1)
 		
 		self.grads = sess.run([state_ops.grads],
-								feed_dict={	state_ops.point:self.point})
+								feed_dict={	state_ops.point: self.point,
+											state_ops.means: snf.means,
+											state_ops.variances: snf.variances,
+											state_ops.weights: snf.weights})
 		self.grads = self.grads[0]
 		
 		if grad_noise > 0:
-			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m))
+			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))

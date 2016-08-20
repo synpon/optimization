@@ -13,8 +13,8 @@ import argparse
 from ac_network import A3CRNN, A3CFF
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
-from gmm import GMM
-from diagnostics import gmm_zeros
+from snf import SNF
+from diagnostics import proportion_zeros
 
 from constants import num_threads, initial_alpha_low, \
 	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
@@ -93,12 +93,12 @@ with graph.as_default(), tf.Session() as sess:
 				
 	train_threads = []
 	train_thread_classes = []
-	gmm = GMM()
-	gmm_zeros(gmm)
+	snf = SNF()
+	proportion_zeros(snf)
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(sess, i, global_network, initial_learning_rate,
-											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars, gmm)							
+											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars, snf)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))
 		

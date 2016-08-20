@@ -12,7 +12,7 @@ class A3CNet(object):
 	def prepare_loss(self, entropy_beta):
 	
 		# Taken action (input for policy)
-		self.a = tf.placeholder(tf.float32, [1,m,1], 'a')
+		self.a = tf.placeholder(tf.float32, [m,1], 'a')
 	
 		# Temporal difference (R-V) (input for policy)
 		self.td = tf.placeholder(tf.float32, [1], 'td')
@@ -50,7 +50,7 @@ class A3CNet(object):
 	def weight_matrix(self, n_in, n_out):
 		with tf.variable_scope("weight"):
 			d = 1.0/np.sqrt(n_in)
-			return tf.Variable(tf.random_uniform(shape=[1, n_in, n_out], minval=-d, maxval=d))
+			return tf.Variable(tf.random_uniform(shape=[n_in, n_out], minval=-d, maxval=d))
 	
 	def bias_vector(self, n_in, n_out):
 		with tf.variable_scope("bias"):
@@ -82,23 +82,19 @@ class A3CRNN(A3CNet):
 	def __init__(self, num_trainable_vars):		
 
 		# Input
-		batch_size = 1
-		self.grads = tf.placeholder(tf.float32, [batch_size,m,1])
-		self.update = tf.placeholder(tf.float32, [batch_size,m,1], 'update') # Coordinate update
+		self.grads = tf.placeholder(tf.float32, [m,1])
+		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
 		self.W1 = self.weight_matrix(rnn_size,1)
-		self.W1 = tf.tile(self.W1,(batch_size,1,1))
 		self.b1 = self.bias_vector(1,1)
 		
 		self.W2 = self.weight_matrix(rnn_size,1)
-		self.W2 = tf.tile(self.W2,(batch_size,1,1))
 		self.b2 = self.bias_vector(1,1)
 		
 		# Weights for value output layer
 		self.W3 = self.weight_matrix(rnn_size,1)
-		self.W3 = tf.tile(self.W3,(batch_size,1,1))
 		self.b3 = self.bias_vector(1,1)
 		
 		if rnn_type == 'rnn':
@@ -113,17 +109,19 @@ class A3CRNN(A3CNet):
 		if rnn_type == 'lstm':
 			raise NotImplementedError
 		
+		grads = tf.reshape(grads,[1,m,1]) # Add a dimension for batch size
 		output,rnn_state_out = self.cell(grads, self.rnn_state)
+		output = tf.reshape(output,[m,rnn_size])
 		self.output = output
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
-		self.mean = tf.batch_matmul(output, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.batch_matmul(output, self.W2) + self.b2)
+		self.mean = tf.matmul(output, self.W1) + self.b1 ### check use of batch_matmul
+		self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
 		
 		# value - linear output layer
-		grads_and_update = tf.concat(2, [self.grads, self.update])
-		v = tf.batch_matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
+		grads_and_update = tf.concat(1, [self.grads, self.update])
+		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:
@@ -133,7 +131,6 @@ class A3CRNN(A3CNet):
 			
 			
 	def run_policy(self, sess, state, update_rnn_state):
-		state = np.reshape(state,[1,m,1])
 		[mean, variance, rnn_state] = sess.run([self.mean,self.variance, self.rnn_state_out], feed_dict={self.grads:state})
 		variance = np.maximum(variance,0.01)	
 		if update_rnn_state:
@@ -142,8 +139,6 @@ class A3CRNN(A3CNet):
 	
 	
 	def run_value(self, sess, grads, update, update_rnn_state):
-		grads = np.reshape(grads,[1,m,1])
-		update = np.reshape(update,[1,m,1])
 		[v_out, rnn_state] = sess.run([self.v, self.rnn_state_out], feed_dict={self.grads:grads, self.update:update})		
 		if update_rnn_state:
 			self.rnn_state = rnn_state	
@@ -161,36 +156,28 @@ class A3CFF(A3CNet):
 	def __init__(self, num_trainable_vars):
 	
 		# Input
-		batch_size = 1
-		self.grads = tf.placeholder(tf.float32, [batch_size,m,1], 'grads')
-		self.update = tf.placeholder(tf.float32, [batch_size,m,1], 'update') # Coordinate update
+		self.grads = tf.placeholder(tf.float32, [m,1], 'grads')
+		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
-		with tf.variable_scope("A3CNet"):
-			with tf.variable_scope("policy_mean"):
-				self.W1 = self.weight_matrix(1,1)
-				self.W1 = tf.tile(self.W1,(batch_size,1,1))
-				self.b1 = self.bias_vector(1,1)
+		self.W1 = self.weight_matrix(1,1)
+		self.b1 = self.bias_vector(1,1)
+	
+		self.W2 = self.weight_matrix(1,1)
+		self.b2 = self.bias_vector(1,1)
 			
-			with tf.variable_scope("policy_variance"):
-				self.W2 = self.weight_matrix(1,1)
-				self.W2 = tf.tile(self.W2,(batch_size,1,1))
-				self.b2 = self.bias_vector(1,1)
-			
-			# weights for value output layer
-			with tf.variable_scope("value"):
-				self.W3 = self.weight_matrix(2,1)
-				self.W3 = tf.tile(self.W3,(batch_size,1,1))
-				self.b3 = self.bias_vector(2,1)
+		# weights for value output layer
+		self.W3 = self.weight_matrix(2,1)
+		self.b3 = self.bias_vector(2,1)
 
 		# policy
-		self.mean = tf.batch_matmul(grads, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.batch_matmul(grads, self.W2) + self.b2)
+		self.mean = tf.matmul(grads, self.W1) + self.b1 ### check all uses of matmul
+		self.variance = tf.nn.softplus(tf.matmul(grads, self.W2) + self.b2)
 		
 		# value - linear output layer
-		grads_and_update = tf.concat(2, [self.grads, self.update])
-		v = tf.batch_matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
+		grads_and_update = tf.concat(1, [self.grads, self.update])
+		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:
@@ -199,14 +186,11 @@ class A3CFF(A3CNet):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
 	def run_policy(self, sess, grads):
-		grads = np.reshape(grads,[1,m,1])
 		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:grads})
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 
 	def run_value(self, sess, grads, update):
-		grads = np.reshape(grads,[1,m,1])
-		update = np.reshape(update,[1,m,1])
 		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
 		return np.abs(v_out) # output is a scalar
 		

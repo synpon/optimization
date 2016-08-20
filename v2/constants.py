@@ -21,7 +21,7 @@ grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.99
 
 #===# Opt net constants #===#
-use_rnn = True # Uses a feed-forward network if false
+use_rnn = False # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[0]
 rnn_size = 2
@@ -29,7 +29,8 @@ num_rnn_layers = 1
 
 #===# GMM constants #===#
 m = 10 # Number of dimensions
-alpha = 0.5 ### not used
+alpha = 0.5
+var_size = 0.2
 
 grad_scaling_methods = ['none','scalar','full']
 grad_scaling_method = grad_scaling_methods[0]
