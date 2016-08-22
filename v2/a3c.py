@@ -3,9 +3,7 @@
 import tensorflow as tf
 import numpy as np
 
-import random
 import math
-import os
 import threading
 import signal
 import argparse

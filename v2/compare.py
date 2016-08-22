@@ -16,7 +16,7 @@ else:
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-mlp = MLP(opt_net,sess)
+mlp = MLP(opt_net)
 sess.run(mlp.init)
 
 print "\nRunning optimizer comparison..."

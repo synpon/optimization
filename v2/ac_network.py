@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import rnn_cell
 
-from constants import rnn_size, num_rnn_layers, num_steps, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
+from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
 
 
 # Actor-Critic Network (policy and value network)
@@ -65,7 +65,7 @@ class A3CNet(object):
 		for i,v in enumerate(vars):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[0,total,0],size=[-1,size,-1])
+			var_grads = tf.slice(h,begin=[total,0],size=[size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
 			
 			#if not grad_clip_value is None:
@@ -116,7 +116,7 @@ class A3CRNN(A3CNet):
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
-		self.mean = tf.matmul(output, self.W1) + self.b1 ### check use of batch_matmul
+		self.mean = tf.matmul(output, self.W1) + self.b1 ### check formula
 		self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
 		
 		# value - linear output layer

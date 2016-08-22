@@ -9,7 +9,7 @@ summary_freq = 500
 #===# A3C constants #===#
 num_threads = 8
 local_t_max = 5 # repeat step size
-num_steps = 3 # Number of steps to go back for truncated backprop.
+num_steps = 3 # Number of steps to go back for truncated backprop. ### unused?
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
 initial_alpha_low = 1e-4   # log_uniform low limit for learning rate

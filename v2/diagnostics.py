@@ -3,7 +3,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-from constants import entropy_beta, m, grad_noise
+from constants import m, grad_noise
 from snf import SNF, StateOps
 
 class SGD(object):

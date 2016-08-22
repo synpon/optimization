@@ -1,8 +1,8 @@
 import tensorflow as tf
-from constants import use_rnn, rnn_type
+from constants import use_rnn, rnn_type, rnn_size
 
 class MLP:
-	def __init__(self, opt_net, sess):
+	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
 		self.batches = 1000
 
@@ -41,15 +41,22 @@ class MLP:
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
-
-		self.init = tf.initialize_all_variables()
 	
 		##### Opt net #####
-		input = tf.reshape(self.grads,[1,-1,1]) ### check ### not used
+		input = tf.reshape(self.grads,[-1,1]) ### check
 
-		updates = opt_net.mean
+		#updates = opt_net.mean
+		### Remove duplicate code - make into functions
+		if use_rnn:
+			output,_ = opt_net.cell(input, opt_net.rnn_state)
+			output = tf.reshape(output,[m,rnn_size])
+			self.mean = tf.matmul(output, opt_net.W1) + opt_net.b1
+		else:
+			updates = tf.matmul(input, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
 		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, updates)
+		
+		self.init = tf.initialize_all_variables()
 		
 		

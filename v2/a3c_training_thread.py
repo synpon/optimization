@@ -4,7 +4,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
-from snf import SNF, State, StateOps
+from snf import State, StateOps
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, termination_prob
 
 
@@ -75,8 +75,10 @@ class A3CTrainingthread(object):
 			
 		# reset accumulated gradients
 		sess.run(self.reset_gradients)
+		
 		# copy weights from shared to local
 		sess.run(self.sync)
+		
 		start_local_t = self.local_t
 		
 		state = State(self.snf,self.state_ops,sess) # Generate a new starting point in the landscape
@@ -115,7 +117,7 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
-				terminal_end = True
+				terminal_end = True ### never used
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
 				state = State(self.snf,self.state_ops,sess)
@@ -124,12 +126,13 @@ class A3CTrainingthread(object):
 				break
 
 		### No associated action here - how to compute value?
-		#if use_rnn:
-			# Do not update the state again
-		#	v = self.local_network.run_value(sess, state, update_rnn_state=False) 
-		#else:
-		#	v = self.local_network.run_value(sess, state)
-		R = 0.0 #value_*v
+		#if not terminal_end:
+			#if use_rnn:
+				# Do not update the state again
+			#	R = self.local_network.run_value(sess, state, update_rnn_state=False) 
+			#else:
+			#	R = self.local_network.run_value(sess, state)
+		R = 0.0
 
 		# Order from the final time point to the first
 		actions.reverse()
@@ -155,7 +158,7 @@ class A3CTrainingthread(object):
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 		#print "Global weight: ", sess.run(self.W)
-		# local step
+
 		diff_local_t = self.local_t - start_local_t
-		return diff_local_t, reward
+		return diff_local_t, discounted_reward
 		
