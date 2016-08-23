@@ -1,3 +1,5 @@
+from __future__ import division
+
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 

@@ -33,7 +33,7 @@ def proportion_zeros(snf):
 	print "Zeros: ", np.mean(z)
 	
 	
-def optimize(point, snf, optimizer):
+def optimize(point, snf, optimizer): ### NaNs observed here for both Adam and SGD
 	print "\nLoss \t\t Grad sizes"	
 	M = np.zeros_like(point)
 	V = np.zeros_like(point)
@@ -52,7 +52,7 @@ def optimize(point, snf, optimizer):
 					state_ops.weights: snf.weights}
 		grads = sess.run([state_ops.grads],feed_dict=feed_dict)
 		
-		grads = np.reshape(grads[0],[m,1]) ### why?
+		grads = grads[0]
 		
 		if grad_noise > 0:
 			grads += np.abs(grads)*grad_noise*np.random.random((m,1))
@@ -73,7 +73,7 @@ def optimize(point, snf, optimizer):
 			V += (1 - adam.beta2) * (grads * grads - V)
 			point -= lr_t * M / (np.sqrt(V) + adam.epsilon)			
 		
-		loss = snf.snf_loss(np.reshape(point,(m,1)))
+		loss = snf.snf_loss(point)
 		losses.append(loss)
 		
 		if i == 1:

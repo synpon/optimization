@@ -1,3 +1,5 @@
+from __future__ import division
+
 import tensorflow as tf
 import numpy as np
 import rnn_cell
@@ -24,6 +26,8 @@ class A3CNet(object):
 		# Minus because this is for gradient ascent
 		# Overlap between the distributions
 		### Find the wrong minus sign within this so the minus can be put back here
+		### Without this correction, entropy may be having the wrong effect
+		### Probably an error in the rewards
 		policy_loss = (tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
 
 		# R (input for value)
@@ -94,8 +98,9 @@ class A3CRNN(A3CNet):
 		self.b2 = self.bias_vector(1,1)
 		
 		# Weights for value output layer
-		self.W3 = self.weight_matrix(rnn_size,1)
-		self.b3 = self.bias_vector(1,1)
+		# Twice as many since grads and update are concatenated to make the input
+		self.W3 = self.weight_matrix(2,1)
+		self.b3 = self.bias_vector(2,1)
 		
 		if rnn_type == 'rnn':
 			self.cell = rnn_cell.BasicRNNCell(rnn_size)
@@ -116,11 +121,12 @@ class A3CRNN(A3CNet):
 		self.rnn_state_out = rnn_state_out
 	
 		# policy
-		self.mean = tf.matmul(output, self.W1) + self.b1 ### check formula
+		self.mean = tf.matmul(output, self.W1) + self.b1
 		self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
 		
 		# value - linear output layer
 		grads_and_update = tf.concat(1, [self.grads, self.update])
+	
 		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
@@ -167,12 +173,13 @@ class A3CFF(A3CNet):
 		self.W2 = self.weight_matrix(1,1)
 		self.b2 = self.bias_vector(1,1)
 			
-		# weights for value output layer
+		# Weights for value output layer
+		# Twice as many since grads and update are concatenated to make the input
 		self.W3 = self.weight_matrix(2,1)
 		self.b3 = self.bias_vector(2,1)
 
 		# policy
-		self.mean = tf.matmul(grads, self.W1) + self.b1 ### check all uses of matmul
+		self.mean = tf.matmul(grads, self.W1) + self.b1
 		self.variance = tf.nn.softplus(tf.matmul(grads, self.W2) + self.b2)
 		
 		# value - linear output layer

@@ -1,15 +1,18 @@
+from __future__ import division
+
 import numpy as np
 
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
+
 log_file = 'tmp/a3c_log'
 summary_freq = 500
 
 #===# A3C constants #===#
 num_threads = 8
 local_t_max = 5 # repeat step size
-num_steps = 3 # Number of steps to go back for truncated backprop. ### unused?
+num_steps = 3 # Number of steps to go back for truncated backprop. ### unused
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
 initial_alpha_low = 1e-4   # log_uniform low limit for learning rate
@@ -21,9 +24,9 @@ grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.99
 
 #===# Opt net constants #===#
-use_rnn = False # Uses a feed-forward network if false
+use_rnn = True # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[0]
+rnn_type = rnn_types[1]
 rnn_size = 2
 num_rnn_layers = 1
 

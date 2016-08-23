@@ -1,4 +1,4 @@
-from __future__ import division ### Ensure this is used everywhere where necessary
+from __future__ import division
 
 import tensorflow as tf
 import numpy as np
@@ -38,14 +38,14 @@ class SNF(object):
 		
 	def gen_points(self,num_points):
 		points = np.random.rand(m*num_points)
-		points = np.reshape(points,[m,num_points]) ### Make 3D?
+		points = np.reshape(points,[m,num_points])
 		return points
 		
 		
 	def choose_action(self,mean,variance):
 		for i,v in enumerate(variance):
-			mean[i] += np.random.normal(0,v)
-		
+			#mean[i] += np.random.normal(0,v)
+			mean[i] += np.random.normal(0,v)*mean[i]
 		mean = inv_scale_grads(mean)	
 		return mean
 	

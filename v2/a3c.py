@@ -1,4 +1,5 @@
-#rm nohup.out && python -u a3c.py &
+#rm nohup.out && nohup python -u a3c.py -s &
+from __future__ import division
 
 import tensorflow as tf
 import numpy as np

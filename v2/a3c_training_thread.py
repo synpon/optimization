@@ -1,3 +1,5 @@
+from __future__ import division
+
 import tensorflow as tf
 import numpy as np
 import random
@@ -117,7 +119,7 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
-				terminal_end = True ### never used
+				terminal_end = True
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
 				state = State(self.snf,self.state_ops,sess)
