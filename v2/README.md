@@ -1,1 +1,1 @@
-# async_deep_reinforce
+# A3C with simulated data for learning gradient descent
