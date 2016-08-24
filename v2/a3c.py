@@ -1,4 +1,5 @@
 #rm nohup.out && nohup python -u a3c.py -s &
+#kill -INT 10160
 from __future__ import division
 
 import tensorflow as tf
@@ -26,6 +27,10 @@ parser.add_argument('--save', '-s', dest='save_model', action='store_true')
 parser.set_defaults(save=False)
 args = parser.parse_args()
 
+if args.save_model:
+	print "Model will be saved"
+else:
+	print "Model will not be saved"
 	
 # Globals
 stop_requested = False	
@@ -42,7 +47,7 @@ def log_uniform(low, high, rate):
 	
 # Stops memory leaks from unterminated threads
 # along with signal.pause() and signal.signal(...)
-def signal_handler(signal, frame):
+def signal_handler(signal, frame): ### signal and frame seem to be unused
 	global stop_requested
 	print('Requesting stop')
 	stop_requested = True
@@ -62,7 +67,7 @@ def train_function(parallel_index):
 		
 		if global_t > max_time_steps:
 			print "thread %d reached max steps" % parallel_index
-			break
+			return #break
 		
 		diff_global_t, r = train_thread_class.thread(sess, global_t)
 		discounted_rewards.append(r)
@@ -70,7 +75,7 @@ def train_function(parallel_index):
 		
 		### Should be done on the global network so there's only one print?
 		if count % summary_freq == 0:
-			print "Reward: ", float(np.mean(discounted_rewards))
+			print "Reward: ", float(np.mean(discounted_rewards)), ", ", global_t, ","
 			discounted_rewards = []
 			
 			
@@ -92,11 +97,12 @@ with graph.as_default(), tf.Session() as sess:
 				
 	train_threads = []
 	train_thread_classes = []
+	
 	snf = SNF()
 	proportion_zeros(snf)
 
 	for i in range(num_threads):
-		train_thread_class = A3CTrainingthread(sess, i, global_network, initial_learning_rate,
+		train_thread_class = A3CTrainingthread(i, global_network, initial_learning_rate,
 											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars, snf)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))

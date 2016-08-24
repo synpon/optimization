@@ -12,7 +12,6 @@ from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, term
 
 class A3CTrainingthread(object):
 	def __init__(self,
-			 sess,
 			 thread_index,
 			 global_network,
 			 initial_learning_rate,
@@ -109,6 +108,7 @@ class A3CTrainingthread(object):
 
 			# State is the point, action is the update
 			reward, next_state = self.snf.act(state,action)
+			next_state.update_grads(self.snf, self.state_ops, sess)
 			
 			self.episode_reward += reward
 			rewards.append(reward)

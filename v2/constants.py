@@ -19,12 +19,12 @@ initial_alpha_low = 1e-4   # log_uniform low limit for learning rate
 initial_alpha_high = 1e-4   # log_uniform high limit for learning rate
 initial_alpha_log_rate = 0.4226 # interpolation rate for learning rate
 entropy_beta = 1e-4 # entropy regularization constant 0.0001
-max_time_steps = 5e7
+max_time_steps = 4e7
 grad_norm_clip = 40.0 # gradient norm clipping
 discount_rate = 0.99
 
 #===# Opt net constants #===#
-use_rnn = True # Uses a feed-forward network if false
+use_rnn = False # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
 rnn_size = 2
@@ -32,7 +32,7 @@ num_rnn_layers = 1
 
 #===# GMM constants #===#
 m = 10 # Number of dimensions
-alpha = 0.5
+alpha = 0.5 ### not used
 var_size = 0.2
 
 grad_scaling_methods = ['none','scalar','full']

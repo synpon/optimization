@@ -20,6 +20,7 @@ class SNF(object):
 		
 		
 	def snf_loss(self, points):
+		### Use tensorflow code instead, shared with StateOps.__init__()
 		num_points = points.shape[1]
 		losses = points - np.tile(self.means,[1,num_points])
 		losses = np.square(losses)
@@ -31,8 +32,8 @@ class SNF(object):
 		losses *= np.tile(self.weights,[1,num_points]) # element-wise
 		
 		mean = np.mean(losses,axis=0)/m # Average over the dimensions
-		geom_mean = np.power(np.prod(losses,axis=0),1/m) # Average over the dimensions
-		losses = alpha*mean + (1-alpha)*geom_mean		
+		# If a product version is used here it must be computed in log-form to avoid NaNs
+		losses = mean
 		return np.mean(losses)
 		
 		
@@ -44,16 +45,13 @@ class SNF(object):
 		
 	def choose_action(self,mean,variance):
 		for i,v in enumerate(variance):
-			#mean[i] += np.random.normal(0,v)
 			mean[i] += np.random.normal(0,v)*mean[i]
 		mean = inv_scale_grads(mean)	
 		return mean
 	
 	
 	def act(self, state, action):
-		#action = np.reshape(action,[m])
 		state.point += action
-		#loss = self.snf_loss(np.reshape(state.point,[1,m,1]))
 		loss = self.snf_loss(state.point)
 		reward = -loss
 		return reward, state
@@ -77,8 +75,9 @@ class StateOps(object):
 		losses *= self.weights # element-wise
 		
 		mean = tf.reduce_mean(losses,reduction_indices=[0])/m # Mean over the dimensions
-		geom_mean = tf.pow(tf.reduce_prod(losses,reduction_indices=[0]),1/m) # Geometric mean over the dimensions
-		loss = alpha*mean + (1-alpha)*geom_mean		
+		# The NaN error is probably born here
+		#geom_mean = tf.pow(tf.reduce_prod(losses,reduction_indices=[0]),1/m) # Geometric mean over the dimensions
+		loss = mean# + (1-alpha)*geom_mean		
 		
 		self.grads = tf.gradients(loss,self.point)[0]
 		self.grads = tf.reshape(self.grads,[m,1])
@@ -89,12 +88,22 @@ class State(object):
 
 		self.point = snf.gen_points(1)
 		
+		self.update_grads(snf, state_ops, sess)
+		
+		if grad_noise > 0:
+			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))
+		
+		
+	def update_grads(self, snf, state_ops, sess):
 		self.grads = sess.run([state_ops.grads],
 								feed_dict={	state_ops.point: self.point,
 											state_ops.means: snf.means,
 											state_ops.variances: snf.variances,
 											state_ops.weights: snf.weights})
-		self.grads = self.grads[0]
-		
-		if grad_noise > 0:
-			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))
+		self.grads = self.grads[0]	
+
+		if np.any(np.isnan(self.grads)):
+			print np.concatenate([self.grads,snf.means,snf.variances,snf.weights,self.point],axis=1)
+			raise ValueError		
+			
+			

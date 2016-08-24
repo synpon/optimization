@@ -80,10 +80,7 @@ class RNNCell(object):
 	@property
 	def output_size(self):
 		raise NotImplementedError("Abstract method")
-
-	def zero_state(self, batch_size, dtype):
-		raise NotImplementedError
-
+		
 
 class BasicRNNCell(RNNCell):
 	def __init__(self, num_units, activation=tf.nn.tanh):
@@ -144,7 +141,7 @@ class BasicLSTMCell(RNNCell):
 
 	@property
 	def state_size(self):
-		return (LSTMStateTuple(self._num_units, self._num_units))
+		return LSTMStateTuple(self._num_units, self._num_units)
 
 	@property
 	def output_size(self):

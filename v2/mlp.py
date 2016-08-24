@@ -1,7 +1,7 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_type, rnn_size, m
+from constants import use_rnn, rnn_size, m
 
 class MLP:
 	def __init__(self, opt_net):
@@ -45,6 +45,7 @@ class MLP:
 	
 		#===# Opt net #===#
 		if use_rnn:
+			self.grads = tf.reshape(self.grads,[1,7850,1])
 			output,_ = opt_net.cell(self.grads, opt_net.rnn_state)
 			output = tf.reshape(output,[m,rnn_size])
 			self.mean = tf.matmul(output, opt_net.W1) + opt_net.b1
