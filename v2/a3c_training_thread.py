@@ -6,7 +6,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
-from snf import State, StateOps
+from snf import SNF, State, StateOps
 from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, termination_prob
 
 
@@ -27,6 +27,7 @@ class A3CTrainingthread(object):
 		self.learning_rate_input = learning_rate_input
 		self.max_global_time_step = max_global_time_step
 		self.snf = snf
+		self.state_ops = StateOps()
 		self.episode_reward = 0
 		
 		if use_rnn:
@@ -37,8 +38,6 @@ class A3CTrainingthread(object):
 			self.local_network = A3CFF(num_trainable_vars)
 			
 		self.local_network.prepare_loss(entropy_beta)
-		
-		self.state_ops = StateOps()
 
 		self.trainer = AccumTrainer()
 		self.trainer.prepare_minimize(self.local_network.total_loss, self.local_network.trainable_vars)
@@ -82,7 +81,8 @@ class A3CTrainingthread(object):
 		
 		start_local_t = self.local_t
 		
-		state = State(self.snf,self.state_ops,sess) # Generate a new starting point in the landscape
+		self.snf = SNF() # Generate a new landscape
+		state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
 
 		discounted_reward = 0
 		value_ = 1.0
@@ -107,8 +107,7 @@ class A3CTrainingthread(object):
 			values.append(value_)
 
 			# State is the point, action is the update
-			reward, next_state = self.snf.act(state,action)
-			next_state.update_grads(self.snf, self.state_ops, sess)
+			reward, next_state = self.snf.act(state, action, self.state_ops, sess)
 			
 			self.episode_reward += reward
 			rewards.append(reward)

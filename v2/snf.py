@@ -17,24 +17,24 @@ class SNF(object):
 		
 		self.weights = np.random.rand(m)
 		self.weights = np.reshape(self.weights,[m,1])
+	
+	
+	def calc_loss(self, point, state_ops, sess):
+		loss = sess.run([state_ops.loss], 
+						feed_dict={	state_ops.point: point, 
+									state_ops.means: self.means, 
+									state_ops.variances: self.variances, 
+									state_ops.weights: self.weights})
+		return loss[0][0]
 		
 		
-	def snf_loss(self, points):
-		### Use tensorflow code instead, shared with StateOps.__init__()
-		num_points = points.shape[1]
-		losses = points - np.tile(self.means,[1,num_points])
-		losses = np.square(losses)
-		tiled_variances = np.tile(self.variances,[1,num_points])
-		losses /= -2*tiled_variances
-		losses = -np.exp(losses) # Negative so we can minimize the loss
-		var_coeffs = 1/np.sqrt(2*tiled_variances*3.14)
-		losses *= var_coeffs
-		losses *= np.tile(self.weights,[1,num_points]) # element-wise
-		
-		mean = np.mean(losses,axis=0)/m # Average over the dimensions
-		# If a product version is used here it must be computed in log-form to avoid NaNs
-		losses = mean
-		return np.mean(losses)
+	def calc_grads(self, point, state_ops, sess):
+		grads = sess.run([state_ops.grads], 
+						feed_dict={	state_ops.point: point, 
+									state_ops.means: self.means, 
+									state_ops.variances: self.variances, 
+									state_ops.weights: self.weights})
+		return grads[0]
 		
 		
 	def gen_points(self,num_points):
@@ -50,17 +50,19 @@ class SNF(object):
 		return mean
 	
 	
-	def act(self, state, action):
+	def act(self, state, action, state_ops, sess):
 		state.point += action
-		loss = self.snf_loss(state.point)
+		loss = self.calc_loss(state.point, state_ops, sess)
 		reward = -loss
+		state.calc_and_set_grads(self, state_ops, sess)
 		return reward, state
 		
 		
-class StateOps(object):
+class StateOps:
+	# StateOps is needed as a separate class because TensorFlow
+	# objects are not thread-safe
 	def __init__(self):
-	
-		#===# Graph to compute the gradients #===#
+		#===# Graph to compute the loss and gradients #===#
 		self.point = tf.placeholder(tf.float32, [m,1])
 		self.means = tf.placeholder(tf.float32, [m,1])
 		self.variances = tf.placeholder(tf.float32, [m,1])
@@ -74,36 +76,26 @@ class StateOps(object):
 		losses *= var_coeffs
 		losses *= self.weights # element-wise
 		
-		mean = tf.reduce_mean(losses,reduction_indices=[0])/m # Mean over the dimensions
-		# The NaN error is probably born here
-		#geom_mean = tf.pow(tf.reduce_prod(losses,reduction_indices=[0]),1/m) # Geometric mean over the dimensions
-		loss = mean# + (1-alpha)*geom_mean		
+		self.loss = tf.reduce_mean(losses,reduction_indices=[0]) # Mean over the dimensions
 		
-		self.grads = tf.gradients(loss,self.point)[0]
+		self.grads = tf.gradients(self.loss,self.point)[0]
 		self.grads = tf.reshape(self.grads,[m,1])
 		
 		
 class State(object):
 	def __init__(self, snf, state_ops, sess):
-
 		self.point = snf.gen_points(1)
+		self.calc_and_set_grads(snf, state_ops, sess)
 		
-		self.update_grads(snf, state_ops, sess)
+		
+	def calc_and_set_grads(self, snf, state_ops, sess):
+		self.grads = snf.calc_grads(self.point, state_ops, sess)
 		
 		if grad_noise > 0:
 			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))
-		
-		
-	def update_grads(self, snf, state_ops, sess):
-		self.grads = sess.run([state_ops.grads],
-								feed_dict={	state_ops.point: self.point,
-											state_ops.means: snf.means,
-											state_ops.variances: snf.variances,
-											state_ops.weights: snf.weights})
-		self.grads = self.grads[0]	
 
-		if np.any(np.isnan(self.grads)):
-			print np.concatenate([self.grads,snf.means,snf.variances,snf.weights,self.point],axis=1)
-			raise ValueError		
+		#if np.any(np.isnan(self.grads)):
+		#	print np.concatenate([self.grads,snf.means,snf.variances,snf.weights,self.point],axis=1)
+		#	raise ValueError	
 			
 			

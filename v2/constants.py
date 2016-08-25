@@ -32,7 +32,6 @@ num_rnn_layers = 1
 
 #===# GMM constants #===#
 m = 10 # Number of dimensions
-alpha = 0.5 ### not used
 var_size = 0.2
 
 grad_scaling_methods = ['none','scalar','full']

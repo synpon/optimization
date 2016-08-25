@@ -6,6 +6,7 @@ import numpy as np
 from constants import m, grad_noise
 from snf import SNF, StateOps
 
+
 class SGD(object):
 	def __init__(self):
 		self.lr = 0.1
@@ -27,13 +28,13 @@ sess = tf.Session()
 def proportion_zeros(snf):
 	n = 1000
 	points = snf.gen_points(n)
-	losses = snf.snf_loss(points)
+	losses = snf.calc_loss(points)
 	z = np.zeros_like(losses)
 	z = np.equal(z,losses).astype(int)
 	print "Zeros: ", np.mean(z)
 	
 	
-def optimize(point, snf, optimizer): ### NaNs observed here for both Adam and SGD
+def optimize(point, snf, optimizer):
 	print "\nLoss \t\t Grad sizes"	
 	M = np.zeros_like(point)
 	V = np.zeros_like(point)
@@ -73,7 +74,7 @@ def optimize(point, snf, optimizer): ### NaNs observed here for both Adam and SG
 			V += (1 - adam.beta2) * (grads * grads - V)
 			point -= lr_t * M / (np.sqrt(V) + adam.epsilon)			
 		
-		loss = snf.snf_loss(point)
+		loss = snf.calc_loss(point)
 		losses.append(loss)
 		
 		if i == 1:

@@ -99,7 +99,7 @@ with graph.as_default(), tf.Session() as sess:
 	train_thread_classes = []
 	
 	snf = SNF()
-	proportion_zeros(snf)
+	#proportion_zeros(snf)
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(i, global_network, initial_learning_rate,
