@@ -97,6 +97,7 @@ class A3CTrainingthread(object):
 			states.append(state)
 			actions.append(action)
 			
+			### May be wrong, calculating the value of next_state instead
 			if use_rnn:
 				# Do not update the state again
 				v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
@@ -130,9 +131,10 @@ class A3CTrainingthread(object):
 		#if not terminal_end:
 			#if use_rnn:
 				# Do not update the state again
-			#	R = self.local_network.run_value(sess, state, update_rnn_state=False) 
+			#	v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
 			#else:
-			#	R = self.local_network.run_value(sess, state)
+			#	v = self.local_network.run_value(sess, state.grads, action)
+		#R = value_*v
 		R = 0.0
 
 		# Order from the final time point to the first

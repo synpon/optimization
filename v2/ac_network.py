@@ -20,15 +20,13 @@ class A3CNet(object):
 		self.td = tf.placeholder(tf.float32, [1], 'td')
 		
 		# Entropy of the policy
+		# Entropy encourages exploration, which it is positively correlated with. 
+		# Therefore, higher entropy makes the loss function lower.
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
-		# Overlap between the distributions
-		### Find the wrong minus sign within this so the minus can be put back here
-		### Without this correction, entropy may be having the wrong effect
-		### Probably an error in the rewards
-		policy_loss = (tf.nn.l2_loss(self.mean - self.a) * self.td + entropy*entropy_beta)
+		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
 
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [1], 'r')

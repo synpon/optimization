@@ -3,7 +3,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-from constants import m, alpha, var_size, grad_noise
+from constants import m, var_size, grad_noise
 from ac_network import inv_scale_grads
 
 
