@@ -92,13 +92,6 @@ class A3CTrainingthread(object):
 				mean,variance = self.local_network.run_policy(sess, state.grads, update_rnn_state=True)
 			else:
 				mean,variance = self.local_network.run_policy(sess, state.grads)
-				
-			if np.any(np.isnan(mean)) or np.any(np.isnan(state.grads)) or np.any(np.isnan(state.point)) or np.any(np.isnan(variance)):
-				print sess.run(self.local_network.W1)
-				print sess.run(self.local_network.W2)
-				print sess.run(self.local_network.W3)
-				print np.concatenate([mean,variance,state.grads,state.point],axis=1)
-				raise ValueError
 			
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
