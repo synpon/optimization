@@ -92,7 +92,14 @@ class A3CTrainingthread(object):
 				mean,variance = self.local_network.run_policy(sess, state.grads, update_rnn_state=True)
 			else:
 				mean,variance = self.local_network.run_policy(sess, state.grads)
-
+				
+			if np.any(np.isnan(mean)) or np.any(np.isnan(state.grads)) or np.any(np.isnan(state.point)) or np.any(np.isnan(variance)):
+				print sess.run(self.local_network.W1)
+				print sess.run(self.local_network.W2)
+				print sess.run(self.local_network.W3)
+				print np.concatenate([mean,variance,state.grads,state.point],axis=1)
+				raise ValueError
+			
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
@@ -160,7 +167,6 @@ class A3CTrainingthread(object):
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
-		#print "Global weight: ", sess.run(self.W)
 
 		diff_local_t = self.local_t - start_local_t
 		return diff_local_t, discounted_reward

@@ -178,7 +178,7 @@ class A3CFF(A3CNet):
 
 		# policy
 		self.mean = tf.matmul(grads, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.matmul(grads, self.W2) + self.b2)
+		self.variance = tf.maximum(0.01,tf.nn.relu(tf.matmul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
 		
 		# value - linear output layer
 		grads_and_update = tf.concat(1, [self.grads, self.update])

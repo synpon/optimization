@@ -13,12 +13,12 @@ if use_rnn:
 	opt_net = A3CRNN([None])
 else:
 	opt_net = A3CFF([None])
-		
+	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-mlp = MLP(opt_net)
+mlp = MLP(opt_net) ### Doesn't work for RNN
 sess.run(mlp.init)
 
 print "\nRunning optimizer comparison..."
