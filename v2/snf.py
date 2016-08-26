@@ -47,21 +47,11 @@ class SNF(object):
 		for i,v in enumerate(variance):
 			mean[i] += np.random.normal(0,v)*mean[i]
 		mean = inv_scale_grads(mean)
-		
-		if np.any(np.isnan(mean)) or np.any(np.isnan(variance)):
-			print np.concatenate([mean,variance],axis=1)
-			raise ValueError
-				
 		return mean
 	
 	
 	def act(self, state, action, state_ops, sess):
-		state.point += action
-		
-		if np.any(np.isnan(state.point)):
-			print np.concatenate([state.point,action],axis=1)
-			raise ValueError
-			
+		state.point += action		
 		loss = self.calc_loss(state.point, state_ops, sess)
 		reward = -loss
 		state.calc_and_set_grads(self, state_ops, sess)
@@ -104,8 +94,5 @@ class State(object):
 		if grad_noise > 0:
 			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))
 
-		if np.any(np.isnan(self.grads)) or np.any(np.isnan(self.point)):
-			print np.concatenate([self.grads,snf.means,snf.variances,snf.weights,self.point],axis=1)
-			raise ValueError	
 			
 			
