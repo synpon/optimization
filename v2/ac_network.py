@@ -89,25 +89,27 @@ class A3CRNN(A3CNet):
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
-		self.W1 = self.weight_matrix(rnn_size,1)
-		self.b1 = self.bias_vector(1,1)
-		
-		self.W2 = self.weight_matrix(rnn_size,1)
-		self.b2 = self.bias_vector(1,1)
-		
-		# Weights for value output layer
-		# Twice as many since grads and update are concatenated to make the input
-		self.W3 = self.weight_matrix(2,1)
-		self.b3 = self.bias_vector(2,1)
-		
-		if rnn_type == 'rnn':
-			self.cell = rnn_cell.BasicRNNCell(rnn_size)
-		elif rnn_type == 'gru':
-			self.cell = rnn_cell.GRUCell(rnn_size)
-		elif rnn_type == 'lstm':
-			self.cell = rnn_cell.BasicLSTMCell(rnn_size)
+		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
+		with tf.variable_scope("a3c"):
+			self.W1 = self.weight_matrix(rnn_size,1)
+			self.b1 = self.bias_vector(1,1)
+			
+			self.W2 = self.weight_matrix(rnn_size,1)
+			self.b2 = self.bias_vector(1,1)
+			
+			# Weights for value output layer
+			# Twice as many since grads and update are concatenated to make the input
+			self.W3 = self.weight_matrix(2,1)
+			self.b3 = self.bias_vector(2,1)
+			
+			if rnn_type == 'rnn':
+				self.cell = rnn_cell.BasicRNNCell(rnn_size)
+			elif rnn_type == 'gru':
+				self.cell = rnn_cell.GRUCell(rnn_size)
+			elif rnn_type == 'lstm':
+				self.cell = rnn_cell.BasicLSTMCell(rnn_size)
 
-		self.rnn_state = tf.zeros([1,m,rnn_size]) 
+			self.rnn_state = tf.zeros([1,m,rnn_size]) 
 
 		if rnn_type == 'lstm':
 			raise NotImplementedError
@@ -166,16 +168,18 @@ class A3CFF(A3CNet):
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
-		self.W1 = self.weight_matrix(1,1)
-		self.b1 = self.bias_vector(1,1)
-	
-		self.W2 = self.weight_matrix(1,1)
-		self.b2 = self.bias_vector(1,1)
-			
-		# Weights for value output layer
-		# Twice as many since grads and update are concatenated to make the input
-		self.W3 = self.weight_matrix(2,1)
-		self.b3 = self.bias_vector(2,1)
+		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
+		with tf.variable_scope("a3c"):
+			self.W1 = self.weight_matrix(1,1)
+			self.b1 = self.bias_vector(1,1)
+		
+			self.W2 = self.weight_matrix(1,1)
+			self.b2 = self.bias_vector(1,1)
+				
+			# Weights for value output layer
+			# Twice as many since grads and update are concatenated to make the input
+			self.W3 = self.weight_matrix(2,1)
+			self.b3 = self.bias_vector(2,1)
 
 		# policy
 		self.mean = tf.matmul(grads, self.W1) + self.b1

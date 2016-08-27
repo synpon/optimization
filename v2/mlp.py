@@ -25,36 +25,38 @@ class MLP:
 		self.loss = tf.reduce_mean(-tf.reduce_sum(self.y_ * tf.log(y), reduction_indices=[1])) # Cross-entropy
 		tf.scalar_summary('loss', self.loss)
 
-		sgd_optimizer = tf.train.GradientDescentOptimizer(0.5)
+		sgd_optimizer = tf.train.GradientDescentOptimizer(0.1)
 		adam_optimizer = tf.train.AdamOptimizer()
 		
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grad_var_pairs = [i for i in grad_var_pairs if 'mlp/' in i[1].name]
-		grads,vars = zip(*grad_var_pairs)
-		grads = [tf.reshape(i,(-1,1)) for i in grads]
-		
-		#if not grad_clip_value is None:
-		#	grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
-			
-		self.grads = tf.concat(0,grads)
-		
-		self.trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 	
 		#===# Opt net #===#
+		grads,_ = zip(*grad_var_pairs)
+		grads = [tf.reshape(i,(-1,1)) for i in grads]
+		
+		#if not grad_clip_value is None:
+		#	grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
+			
+		grads = tf.concat(0,grads)
+		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
+		
 		if use_rnn:
-			self.grads = tf.reshape(self.grads,[1,7850,1])
-			output,_ = opt_net.cell(self.grads, opt_net.rnn_state)
+			grads = tf.reshape(grads,[1,7850])
+			output,_ = opt_net.cell(grads, opt_net.rnn_state)
 			output = tf.reshape(output,[m,rnn_size])
 			self.mean = tf.matmul(output, opt_net.W1) + opt_net.b1
 		else:
-			updates = tf.matmul(self.grads, opt_net.W1) + opt_net.b1
+			#opt_net.W1 = tf.Print(opt_net.W1,[opt_net.W1])
+			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
-		self.opt_net_train_step = opt_net.update_params(self.trainable_variables, updates)
+		self.opt_net_train_step = opt_net.update_params(trainable_variables, updates)
 		
-		self.init = tf.initialize_all_variables()
+		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
+		self.init = tf.initialize_variables(vars)
 		
 		

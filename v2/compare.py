@@ -6,7 +6,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from mlp import MLP
 from ac_network import A3CRNN, A3CFF
 from constants import use_rnn, summaries_dir, save_path
-### Ensure this works when a model with the correct learning rate is specified manually
+
 sess = tf.Session()
 
 if use_rnn:
@@ -14,9 +14,12 @@ if use_rnn:
 else:
 	opt_net = A3CFF([None])
 	
-# Load model
+# Load model ### Does not work properly
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
+
+if not use_rnn:
+	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
 mlp = MLP(opt_net) ### Doesn't work for RNN
 sess.run(mlp.init)
@@ -38,12 +41,13 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # SGD
 sess.run(mlp.init) # Reset parameters of net to be trained
-for i in range(mlp.batches):
-	batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-	summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
-	sgd_writer.add_summary(summary,i)
-accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
-print "SGD accuracy: %f" % accuracy
+for i in range(1):
+	for j in range(mlp.batches):
+		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
+		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+		sgd_writer.add_summary(summary,j)
+	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	print "SGD accuracy: %f" % accuracy
 sgd_writer.close()
 
 # Adam
