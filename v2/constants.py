@@ -15,12 +15,11 @@ local_t_max = 5 # repeat step size
 num_steps = 3 # Number of steps to go back for truncated backprop. ### unused
 rmsp_alpha = 0.99 # decay parameter for RMSProp
 rmsp_epsilon = 0.1 # epsilon parameter for RMSProp
-initial_alpha_low = 1e-4   # log_uniform low limit for learning rate
-initial_alpha_high = 1e-4   # log_uniform high limit for learning rate
-initial_alpha_log_rate = 0.4226 # interpolation rate for learning rate
+lr_high = 0.001 # upper limit for learning rate for RMSProp
+lr_low = 0.001 # lower limit for learning rate for RMSProp
 entropy_beta = 1e-4 # entropy regularization constant 0.0001
 max_time_steps = 4e7
-grad_norm_clip = 40.0 # gradient norm clipping
+grad_norm_clip = 40.0 # gradient norm clipping for RMSProp
 discount_rate = 0.99
 
 #===# Opt net constants #===#
@@ -39,7 +38,7 @@ grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
-termination_prob = 0.003
+termination_prob = 0.003 ### check
 
 # Random noise is computed each time the point is processed while training the opt net
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.

@@ -16,8 +16,7 @@ from rmsprop_applier import RMSPropApplier
 from snf import SNF
 from diagnostics import proportion_zeros
 
-from constants import num_threads, initial_alpha_low, \
-	initial_alpha_high, initial_alpha_log_rate, max_time_steps, \
+from constants import num_threads, max_time_steps, \
 	log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
 	use_rnn, summary_freq, save_path
 
@@ -37,12 +36,6 @@ stop_requested = False
 global_t = 0
 num_trainable_vars = [None]
 graph = tf.Graph()
-		
-def log_uniform(low, high, rate):
-	log_low = math.log(low)
-	log_high = math.log(high)
-	v = log_low * (1-rate) + log_high * rate
-	return math.exp(v)
 
 	
 # Stops memory leaks from unterminated threads
@@ -88,7 +81,6 @@ with graph.as_default(), tf.Session() as sess:
 	else:
 		global_network = A3CFF(num_trainable_vars)
 		
-	initial_learning_rate = log_uniform(initial_alpha_low, initial_alpha_high, initial_alpha_log_rate)
 	learning_rate_input = tf.placeholder("float")
 
 	grad_applier = RMSPropApplier(learning_rate = learning_rate_input,
@@ -104,8 +96,8 @@ with graph.as_default(), tf.Session() as sess:
 	#proportion_zeros(snf)
 
 	for i in range(num_threads):
-		train_thread_class = A3CTrainingthread(i, global_network, initial_learning_rate,
-											learning_rate_input, grad_applier, max_time_steps, num_trainable_vars, snf)							
+		train_thread_class = A3CTrainingthread(i, global_network,
+											learning_rate_input, grad_applier, num_trainable_vars, snf)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))
 		

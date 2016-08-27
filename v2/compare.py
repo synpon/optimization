@@ -6,7 +6,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from mlp import MLP
 from ac_network import A3CRNN, A3CFF
 from constants import use_rnn, summaries_dir, save_path
-
+### Ensure this works when a model with the correct learning rate is specified manually
 sess = tf.Session()
 
 if use_rnn:

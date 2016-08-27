@@ -7,17 +7,16 @@ import random
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN, A3CFF
 from snf import SNF, State, StateOps
-from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, termination_prob
+from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, \
+						termination_prob, max_time_steps, lr_high, lr_low
 
 
 class A3CTrainingthread(object):
 	def __init__(self,
 			 thread_index,
 			 global_network,
-			 initial_learning_rate,
 			 learning_rate_input,
 			 grad_applier,
-			 max_global_time_step,
 			 num_trainable_vars,
 			 snf):
 			 
@@ -25,7 +24,7 @@ class A3CTrainingthread(object):
 		
 		self.thread_index = thread_index
 		self.learning_rate_input = learning_rate_input
-		self.max_global_time_step = max_global_time_step
+		#self.max_global_time_step = max_global_time_step
 		self.snf = snf
 		self.state_ops = StateOps()
 		self.episode_reward = 0
@@ -50,15 +49,13 @@ class A3CTrainingthread(object):
 
 		self.sync = self.local_network.sync_from(global_network)
 		self.local_t = 0
-		self.initial_learning_rate = initial_learning_rate
 		self.W = global_network.W1
 
 
 	def _anneal_learning_rate(self, global_time_step):
-		learning_rate = self.initial_learning_rate * (self.max_global_time_step - global_time_step) / self.max_global_time_step
-		if learning_rate < 0:
-			learning_rate = 0
-		return learning_rate
+		t = global_time_step / max_time_steps # Proportion of total time elapsed
+		lr = lr_high*t + (1-t)*lr_low
+		return lr
 
 
 	# Run for one episode
@@ -66,7 +63,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []
+		values = []#[1.0] # 1.0 is the value of the first state
 		
 		terminal_end = False
 		
@@ -96,10 +93,9 @@ class A3CTrainingthread(object):
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
-			
-			### May be wrong, calculating the value of next_state instead
+
+			# Calculate the value of next_state
 			if use_rnn:
-				# Do not update the state again
 				v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
 			else:
 				v = self.local_network.run_value(sess, state.grads, action)
@@ -127,15 +123,11 @@ class A3CTrainingthread(object):
 					self.local_network.reset_rnn_state(1,m)
 				break
 
-		### No associated action here - how to compute value?
-		#if not terminal_end:
-			#if use_rnn:
-				# Do not update the state again
-			#	v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
-			#else:
-			#	v = self.local_network.run_value(sess, state.grads, action)
-		#R = value_*v
 		R = 0.0
+		if not terminal_end:
+			# Remove the last value
+			#values = values[:-1]
+			R = values[-1]
 
 		# Order from the final time point to the first
 		actions.reverse()

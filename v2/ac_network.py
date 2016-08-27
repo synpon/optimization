@@ -125,6 +125,7 @@ class A3CRNN(A3CNet):
 		# value - linear output layer
 		grads_and_update = tf.concat(1, [self.grads, self.update])
 	
+		### May need more layers. Should be feed-forward only
 		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
@@ -182,6 +183,7 @@ class A3CFF(A3CNet):
 		
 		# value - linear output layer
 		grads_and_update = tf.concat(1, [self.grads, self.update])
+		### May need more layers. Should be feed-forward only
 		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
@@ -199,7 +201,7 @@ class A3CFF(A3CNet):
 		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
 		return np.abs(v_out) # output is a scalar
 		
-		
+
 def scale_grads(input):
 	if grad_scaling_method == 'scalar':
 		return input*tf.constant(grad_scaling_factor)	
