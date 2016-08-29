@@ -88,38 +88,33 @@ class A3CRNN(A3CNet):
 			self.W2 = weight_matrix(rnn_size,1)
 			self.b2 = bias_vector(1,1)
 			
-			# Weights for value output layer
-			# Twice as many since grads and update are concatenated to make the input
-			self.W3 = weight_matrix(2,1)
-			self.b3 = bias_vector(2,1)
-			
 			if rnn_type == 'rnn':
-				self.cell = rnn_cell.BasicRNNCell(rnn_size)
+				self.cell = tf.nn.rnn_cell.BasicRNNCell(rnn_size)
 			elif rnn_type == 'gru':
-				self.cell = rnn_cell.GRUCell(rnn_size)
+				self.cell = tf.nn.rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
-				self.cell = rnn_cell.BasicLSTMCell(rnn_size)
+				self.cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_size)
 
-			self.rnn_state = tf.zeros([1,m,rnn_size]) 
+			self.rnn_state = tf.zeros([m,rnn_size]) #tf.zeros([1,m,rnn_size]) 
 
-		if rnn_type == 'lstm':
-			raise NotImplementedError
+			if rnn_type == 'lstm':
+				raise NotImplementedError
+			
+			grads = tf.reshape(grads,[m,1]) #[1,m,1] # Add a dimension for batch size
+			output,rnn_state_out = self.cell(grads, self.rnn_state)
+			output = tf.reshape(output,[m,rnn_size])
+			self.output = output
+			self.rnn_state_out = rnn_state_out
 		
-		grads = tf.reshape(grads,[1,m,1]) # Add a dimension for batch size
-		output,rnn_state_out = self.cell(grads, self.rnn_state)
-		output = tf.reshape(output,[m,rnn_size])
-		self.output = output
-		self.rnn_state_out = rnn_state_out
-	
-		# policy
-		self.mean = tf.matmul(output, self.W1) + self.b1
-		self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
+			# policy
+			self.mean = tf.matmul(output, self.W1) + self.b1
+			self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
+			
+			# value - linear output layer
+			grads_and_update = tf.concat(1, [self.grads, self.update])
+			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
+			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
 		
-		# value - linear output layer
-		grads_and_update = tf.concat(1, [self.grads, self.update])
-	
-		### May need more layers. Should be feed-forward only
-		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:

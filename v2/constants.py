@@ -24,7 +24,7 @@ grad_norm_clip = 40.0 # gradient norm clipping for RMSProp
 discount_rate = 0.99
 
 #===# Opt net constants #===#
-use_rnn = False # Uses a feed-forward network if false
+use_rnn = True # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
 rnn_size = 2

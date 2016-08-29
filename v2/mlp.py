@@ -1,12 +1,13 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_size, m
+from constants import use_rnn, rnn_size
 
 class MLP:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
 		self.batches = 1000
+		n_dims = 7850
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -45,12 +46,12 @@ class MLP:
 		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
 		
 		if use_rnn:
-			grads = tf.reshape(grads,[1,7850,1])
+			grads = tf.reshape(grads,[n_dims,1])
+			opt_net.rnn_state = tf.zeros([n_dims,rnn_size])
 			output,_ = opt_net.cell(grads, opt_net.rnn_state)
-			output = tf.reshape(output,[m,rnn_size])
-			self.mean = tf.matmul(output, opt_net.W1) + opt_net.b1
+			output = tf.reshape(output,[n_dims,rnn_size])
+			updates = tf.matmul(output, opt_net.W1) + opt_net.b1
 		else:
-			#opt_net.W1 = tf.Print(opt_net.W1,[opt_net.W1])
 			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
