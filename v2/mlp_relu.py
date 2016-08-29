@@ -3,11 +3,12 @@ from __future__ import division
 import tensorflow as tf
 from constants import use_rnn, rnn_size
 
-class MLP:
+# https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/multilayer_perceptron.py
+
+class MLP_RELU:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
 		self.batches = 1000
-		n_dims = 7850
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -15,10 +16,13 @@ class MLP:
 		
 		# The scope is used to identify the right gradients to optimize
 		with tf.variable_scope("mnist"):
-			self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
-			self.b = tf.Variable(tf.constant(0.1, shape=[10]))
+			h = tf.contrib.layers.fully_connected(inputs=self.x, num_outputs=256, activation_fn=tf.nn.relu)
+			h = tf.contrib.layers.fully_connected(inputs=h, num_outputs=512, activation_fn=tf.nn.relu)
+			h = tf.contrib.layers.fully_connected(inputs=h, num_outputs=256, activation_fn=tf.nn.relu)
+			y = tf.contrib.layers.fully_connected(inputs=h, num_outputs=10, activation_fn=tf.nn.softmax)
 			
-		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
+		n_dims = 7850
+			
 		y = tf.clip_by_value(y, 1e-10, 1.0) # Prevent log(0) in the cross-entropy calculation
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))

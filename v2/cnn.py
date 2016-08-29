@@ -3,7 +3,9 @@ from __future__ import division
 import tensorflow as tf
 from constants import use_rnn, rnn_size
 
-class MLP:
+# https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
+
+class CNN:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
 		self.batches = 1000

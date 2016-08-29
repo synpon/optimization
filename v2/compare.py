@@ -4,6 +4,8 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
 from mlp import MLP
+from mlp_relu import MLP_RELU
+from cnn import CNN
 from ac_network import A3CRNN, A3CFF
 from constants import use_rnn, summaries_dir, save_path
 
@@ -21,8 +23,8 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-mlp = MLP(opt_net) ### Doesn't work for RNN
-sess.run(mlp.init)
+net = MLP_RELU(opt_net)
+sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
 
@@ -40,33 +42,33 @@ opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # SGD
-sess.run(mlp.init) # Reset parameters of net to be trained
+sess.run(net.init) # Reset parameters of net to be trained
 for i in range(1):
-	for j in range(mlp.batches):
-		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_ = sess.run([merged, mlp.sgd_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+	for j in range(net.batches):
+		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+		summary,_ = sess.run([merged, net.sgd_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
 		sgd_writer.add_summary(summary,j)
-	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 	print "SGD accuracy: %f" % accuracy
 sgd_writer.close()
 
 # Adam
-sess.run(mlp.init) # Reset parameters of net to be trained
-for i in range(mlp.batches):
-	batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-	summary,_ = sess.run([merged, mlp.adam_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+sess.run(net.init) # Reset parameters of net to be trained
+for i in range(net.batches):
+	batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+	summary,_ = sess.run([merged, net.adam_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
 	adam_writer.add_summary(summary,i)
-accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
 for i in range(10):
-	sess.run(mlp.init) # Reset parameters of net to be trained
-	for j in range(mlp.batches):
-		batch_x, batch_y = mnist.train.next_batch(mlp.batch_size)
-		summary,_ = sess.run([merged, mlp.opt_net_train_step], feed_dict={mlp.x: batch_x, mlp.y_: batch_y})
+	sess.run(net.init) # Reset parameters of net to be trained
+	for j in range(net.batches):
+		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+		summary,_ = sess.run([merged, net.opt_net_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
 		opt_net_writer.add_summary(summary,j)
-	accuracy = sess.run(mlp.accuracy, feed_dict={mlp.x: mnist.test.images, mlp.y_: mnist.test.labels})
+	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 	print "Opt net accuracy: %f" % accuracy
 opt_net_writer.close()
 

@@ -151,13 +151,18 @@ class A3CFF(A3CNet):
 		# Input
 		self.grads = tf.placeholder(tf.float32, [m,1], 'grads')
 		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
+		self.rand = tf.placeholder(tf.float32)
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			# fc_layer not used in order to extract W1 more easily
-			self.W1 = weight_matrix(1,1)
+			#self.W_m = tf.Variable(tf.constant(0.1,shape=[1,1]))#weight_matrix(1,1) # Magnitude
+			#self.W_p = tf.Variable(tf.constant(0.75,shape=[1,1])) # Probability of being positive
+			
+			self.W1 = tf.Variable(tf.constant(0.1,shape=[1,1])) ###
+			
 			self.b1 = bias_vector(1,1)
 		
 			self.W2 = weight_matrix(1,1)
