@@ -63,7 +63,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []#[1.0] # 1.0 is the value of the first state
+		values = []#[1.0] # 1.0 is the value of the first state - causes the weights to increase in FF - why?
 		
 		terminal_end = False
 		
@@ -124,10 +124,10 @@ class A3CTrainingthread(object):
 				break
 
 		R = 0.0
-		if not terminal_end:
+		#if not terminal_end:
 			# Remove the last value
-			#values = values[:-1]
-			R = values[-1]
+			#values = values[:-1] 
+		#	R = values[-1]
 
 		# Order from the final time point to the first
 		actions.reverse()

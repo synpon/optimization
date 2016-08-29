@@ -45,7 +45,7 @@ class MLP:
 		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
 		
 		if use_rnn:
-			grads = tf.reshape(grads,[1,7850])
+			grads = tf.reshape(grads,[1,7850,1])
 			output,_ = opt_net.cell(grads, opt_net.rnn_state)
 			output = tf.reshape(output,[m,rnn_size])
 			self.mean = tf.matmul(output, opt_net.W1) + opt_net.b1

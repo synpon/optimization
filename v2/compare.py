@@ -14,7 +14,7 @@ if use_rnn:
 else:
 	opt_net = A3CFF([None])
 	
-# Load model ### Does not work properly
+# Load model
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 

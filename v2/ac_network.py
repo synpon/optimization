@@ -48,16 +48,7 @@ class A3CNet(object):
 				sync_ops.append(sync_op)
 
 			return tf.group(*sync_ops, name=name)
-
-	def weight_matrix(self, n_in, n_out):
-		with tf.variable_scope("weight"):
-			d = 1.0/np.sqrt(n_in)
-			return tf.Variable(tf.random_uniform(shape=[n_in, n_out], minval=-d, maxval=d))
-	
-	def bias_vector(self, n_in, n_out):
-		with tf.variable_scope("bias"):
-			d = 1.0/np.sqrt(n_in)
-			return tf.Variable(tf.random_uniform(shape=[n_out], minval=-d, maxval=d))
+			
 
 	# Update the parameters of another network (eg an MLP)
 	def update_params(self, vars, h):
@@ -91,16 +82,16 @@ class A3CRNN(A3CNet):
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
-			self.W1 = self.weight_matrix(rnn_size,1)
-			self.b1 = self.bias_vector(1,1)
+			self.W1 = weight_matrix(rnn_size,1)
+			self.b1 = bias_vector(1,1)
 			
-			self.W2 = self.weight_matrix(rnn_size,1)
-			self.b2 = self.bias_vector(1,1)
+			self.W2 = weight_matrix(rnn_size,1)
+			self.b2 = bias_vector(1,1)
 			
 			# Weights for value output layer
 			# Twice as many since grads and update are concatenated to make the input
-			self.W3 = self.weight_matrix(2,1)
-			self.b3 = self.bias_vector(2,1)
+			self.W3 = weight_matrix(2,1)
+			self.b3 = bias_vector(2,1)
 			
 			if rnn_type == 'rnn':
 				self.cell = rnn_cell.BasicRNNCell(rnn_size)
@@ -170,25 +161,24 @@ class A3CFF(A3CNet):
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
-			self.W1 = self.weight_matrix(1,1)
-			self.b1 = self.bias_vector(1,1)
+			# fc_layer not used in order to extract W1 more easily
+			self.W1 = weight_matrix(1,1)
+			self.b1 = bias_vector(1,1)
 		
-			self.W2 = self.weight_matrix(1,1)
-			self.b2 = self.bias_vector(1,1)
-				
-			# Weights for value output layer
-			# Twice as many since grads and update are concatenated to make the input
-			self.W3 = self.weight_matrix(2,1)
-			self.b3 = self.bias_vector(2,1)
+			self.W2 = weight_matrix(1,1)
+			self.b2 = bias_vector(1,1)
 
-		# policy
-		self.mean = tf.matmul(grads, self.W1) + self.b1
-		self.variance = tf.maximum(0.01,tf.nn.relu(tf.matmul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
-		
-		# value - linear output layer
-		grads_and_update = tf.concat(1, [self.grads, self.update])
-		### May need more layers. Should be feed-forward only
-		v = tf.matmul(grads_and_update, self.W3) + self.b3 # Scalar output so the activation function is linear
+			# policy
+			self.mean = tf.matmul(grads, self.W1) + self.b1
+			self.variance = tf.maximum(0.01,tf.nn.relu(tf.matmul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
+			
+			# value - linear output layer
+			grads_and_update = tf.concat(1, [self.grads, self.update])
+
+			# Twice as many inputs since grads and update are concatenated to make the input
+			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
+			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
+
 		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
 		
 		if num_trainable_vars[0] == None:
@@ -205,7 +195,26 @@ class A3CFF(A3CNet):
 		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
 		return np.abs(v_out) # output is a scalar
 		
+		
+def weight_matrix(num_in, num_out):
+	with tf.variable_scope("weight"):
+		d = 1.0/np.sqrt(num_in)
+		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
+def bias_vector(num_in, num_out):
+	with tf.variable_scope("bias"):
+		d = 1.0/np.sqrt(num_in)
+		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
+
+def fc_layer(layer_in, num_in, num_out, activation_fn):
+	W = weight_matrix(num_in, num_out)
+	b = bias_vector(num_in, num_out)
+	out = tf.matmul(layer_in, W) + b
+	if activation_fn != None:
+		out = activation_fn(out)
+	return out
+		
+		
 def scale_grads(input):
 	if grad_scaling_method == 'scalar':
 		return input*tf.constant(grad_scaling_factor)	
