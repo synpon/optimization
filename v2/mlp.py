@@ -7,7 +7,6 @@ class MLP:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
 		self.batches = 1000
-		n_dims = 7850
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -47,10 +46,10 @@ class MLP:
 		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
 		
 		if use_rnn:
-			grads = tf.reshape(grads,[n_dims,1])
-			opt_net.rnn_state = tf.zeros([n_dims,rnn_size])
+			grads = tf.reshape(grads,[None,1])
+			opt_net.rnn_state = tf.zeros([None,rnn_size])
 			output,_ = opt_net.cell(grads, opt_net.rnn_state)
-			output = tf.reshape(output,[n_dims,rnn_size])
+			output = tf.reshape(output,[None,rnn_size])
 			updates = tf.matmul(output, opt_net.W1) + opt_net.b1
 		else:
 			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1

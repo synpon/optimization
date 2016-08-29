@@ -8,8 +8,7 @@ from constants import use_rnn, rnn_size
 class CNN:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
-		self.batches = 1000
-		n_dims = 7850
+		self.batches = 1000 ### Adjust
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -17,10 +16,16 @@ class CNN:
 		
 		# The scope is used to identify the right gradients to optimize
 		with tf.variable_scope("mnist"):
-			self.W = tf.Variable(tf.truncated_normal(stddev=0.1, shape=[784,10]))
-			self.b = tf.Variable(tf.constant(0.1, shape=[10]))
+			x = tf.reshape(self.x, shape=[-1, 28, 28, 1])
+			h = tf.contrib.layers.convolution2d(x, num_outputs=16, kernel_size=[8,8], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
+			h = tf.nn.max_pool(h, ksize=[1,4,4,1], strides=[1,2,2,1], padding='SAME')
+			h = tf.contrib.layers.convolution2d(h, num_outputs=32, kernel_size=[4,4], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
+			h = tf.nn.max_pool(h, ksize=[1,4,4,1], strides=[1,2,2,1], padding='SAME')
+			#h = tf.contrib.layers.convolution2d(h, num_outputs=128, kernel_size=[2,2], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
+			#h = tf.nn.max_pool(h, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+			h = tf.reshape(h, shape=[self.batch_size,1568])
+			y = tf.contrib.layers.fully_connected(inputs=h, num_outputs=10, activation_fn=tf.nn.softmax)
 			
-		y = tf.nn.softmax(tf.matmul(self.x,self.W) + self.b)
 		y = tf.clip_by_value(y, 1e-10, 1.0) # Prevent log(0) in the cross-entropy calculation
 		
 		correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(self.y_,1))
@@ -49,10 +54,10 @@ class CNN:
 		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
 		
 		if use_rnn:
-			grads = tf.reshape(grads,[n_dims,1])
-			opt_net.rnn_state = tf.zeros([n_dims,rnn_size])
+			grads = tf.reshape(grads,[None,1])
+			opt_net.rnn_state = tf.zeros([None,rnn_size])
 			output,_ = opt_net.cell(grads, opt_net.rnn_state)
-			output = tf.reshape(output,[n_dims,rnn_size])
+			output = tf.reshape(output,[None,rnn_size])
 			updates = tf.matmul(output, opt_net.W1) + opt_net.b1
 		else:
 			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
