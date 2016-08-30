@@ -43,7 +43,7 @@ class MLP:
 		#	grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
 			
 		grads = tf.concat(0,grads)
-		trainable_variables = [i for i in tf.trainable_variables() if 'mlp/' in i.name]		
+		trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 		
 		if use_rnn:
 			grads = tf.reshape(grads,[None,1])
