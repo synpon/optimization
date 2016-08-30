@@ -95,12 +95,12 @@ class A3CRNN(A3CNet):
 			elif rnn_type == 'lstm':
 				self.cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_size)
 
-			self.rnn_state = tf.zeros([m,rnn_size]) #tf.zeros([1,m,rnn_size]) 
+			self.rnn_state = tf.zeros([m,rnn_size])
 
 			if rnn_type == 'lstm':
 				raise NotImplementedError
 			
-			grads = tf.reshape(grads,[m,1]) #[1,m,1] # Add a dimension for batch size
+			grads = tf.reshape(grads,[m,1])
 			output,rnn_state_out = self.cell(grads, self.rnn_state)
 			output = tf.reshape(output,[m,rnn_size])
 			self.output = output
@@ -108,7 +108,7 @@ class A3CRNN(A3CNet):
 		
 			# policy
 			self.mean = tf.matmul(output, self.W1) + self.b1
-			self.variance = tf.nn.softplus(tf.matmul(output, self.W2) + self.b2)
+			self.variance = tf.maximum(0.01,tf.nn.relu(tf.matmul(output, self.W2) + self.b2)) # softplus not used due to NaNs
 			
 			# value - linear output layer
 			grads_and_update = tf.concat(1, [self.grads, self.update])
