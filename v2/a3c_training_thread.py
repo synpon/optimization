@@ -145,6 +145,7 @@ class A3CTrainingthread(object):
 								feed_dict = {
 									self.local_network.grads: state.grads,
 									self.local_network.update: a,
+									self.local_network.rand: random.uniform(-1,1),
 									self.local_network.a: a,
 									self.local_network.td: [td],
 									self.local_network.r: [R]})

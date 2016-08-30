@@ -69,8 +69,8 @@ def train_function(parallel_index):
 		### Should be done on the global network so there's only one print?
 		if count % summary_freq == 0:
 			print "Reward: ", float(np.mean(discounted_rewards)), ", ", global_t, ","
-			if not use_rnn:
-				print "W: ", sess.run(global_network.W1)[0][0]
+			#if not use_rnn: 
+			#	print "W: ", sess.run(global_network.W1)[0][0] ###
 			discounted_rewards = []
 			
 			

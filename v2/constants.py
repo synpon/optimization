@@ -24,7 +24,7 @@ grad_norm_clip = 40.0 # gradient norm clipping for RMSProp
 discount_rate = 0.99
 
 #===# Opt net constants #===#
-use_rnn = True # Uses a feed-forward network if false
+use_rnn = False # Uses a feed-forward network if false
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
 rnn_size = 2
@@ -39,7 +39,7 @@ grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
-termination_prob = 0.003 ### check or set automatically
+termination_prob = 0.003 # Can be used to control the trade-off between speed and the final loss.
 
 # Random noise is computed each time the point is processed while training the opt net
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.

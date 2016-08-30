@@ -1,9 +1,9 @@
 from __future__ import division
-
+import random
 import tensorflow as tf
 import numpy as np
-import rnn_cell
 
+import rnn_cell
 from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
 
 
@@ -158,10 +158,11 @@ class A3CFF(A3CNet):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			# fc_layer not used in order to extract W1 more easily
-			#self.W_m = tf.Variable(tf.constant(0.1,shape=[1,1]))#weight_matrix(1,1) # Magnitude
-			#self.W_p = tf.Variable(tf.constant(0.75,shape=[1,1])) # Probability of being positive
+			self.W_m = tf.Variable(tf.constant(0.1, shape=[1,1]))#weight_matrix(1,1) # Magnitude
+			self.W_p = tf.Variable(tf.constant(0.75, shape=[1,1])) # Probability of being positive
 			
-			self.W1 = tf.Variable(tf.constant(0.1,shape=[1,1])) ###
+			# Greater than does not have a gradient - approximated with tanh
+			self.W1 = self.W_m*(tf.nn.tanh(self.rand - self.W_p))
 			
 			self.b1 = bias_vector(1,1)
 		
@@ -187,12 +188,14 @@ class A3CFF(A3CNet):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
 		
 	def run_policy(self, sess, grads):
-		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:grads})
+		rand = random.uniform(-1,1)
+		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:grads, self.rand:rand})
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 
 	def run_value(self, sess, grads, update):
-		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update})
+		rand = random.uniform(-1,1)
+		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update, self.rand:rand})
 		return np.abs(v_out) # output is a scalar
 		
 		
