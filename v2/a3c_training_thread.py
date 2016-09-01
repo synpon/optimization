@@ -24,7 +24,6 @@ class A3CTrainingthread(object):
 		
 		self.thread_index = thread_index
 		self.learning_rate_input = learning_rate_input
-		#self.max_global_time_step = max_global_time_step
 		self.snf = snf
 		self.state_ops = StateOps()
 		self.episode_reward = 0
@@ -63,7 +62,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []#[1.0] # 1.0 is the value of the first state - causes the weights to increase in FF - why?
+		values = []#[1.0] ### 1.0 is the value of the first state - causes the weights to increase in FF - why?
 		
 		terminal_end = False
 		
@@ -145,7 +144,7 @@ class A3CTrainingthread(object):
 								feed_dict = {
 									self.local_network.grads: state.grads,
 									self.local_network.update: a,
-									self.local_network.rand: random.uniform(-1,1),
+									###self.local_network.rand: random.uniform(-1,1),
 									self.local_network.a: a,
 									self.local_network.td: [td],
 									self.local_network.r: [R]})

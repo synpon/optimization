@@ -73,10 +73,12 @@ class A3CRNN(A3CNet):
 	# For an RNN, input is usually of shape [batch_size,num_steps]
 	# Here they are both 1, as is the case for sampling in a generative RNN
 	def __init__(self, num_trainable_vars):		
-
+		### Add regularization of the parameters to control bias etc.?
 		# Input
 		self.grads = tf.placeholder(tf.float32, [m,1])
 		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
+		#self.rand = tf.placeholder_with_default(input=tf.zeros([m,1],tf.float32), shape=[m,1])
+		self.rand = tf.placeholder(tf.float32, [m,1])
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
@@ -101,6 +103,7 @@ class A3CRNN(A3CNet):
 				raise NotImplementedError
 			
 			grads = tf.reshape(grads,[m,1])
+			#output,rnn_state_out = self.cell(grads, self.rnn_state, self.rand)
 			output,rnn_state_out = self.cell(grads, self.rnn_state)
 			output = tf.reshape(output,[m,rnn_size])
 			self.output = output

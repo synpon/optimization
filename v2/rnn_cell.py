@@ -6,21 +6,7 @@ import collections
 import math
 
 import six
-
-from tensorflow.python.framework import ops
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import clip_ops
-from tensorflow.python.ops import embedding_ops
-from tensorflow.python.ops import init_ops
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import nn_ops
-from tensorflow.python.ops import variable_scope as vs
-
-from tensorflow.python.ops.math_ops import sigmoid
-from tensorflow.python.ops.math_ops import tanh
-
-from tensorflow.python.platform import tf_logging as logging
-
+import tensorflow as tf
 
 def _is_sequence(seq):
   return (isinstance(seq, collections.Sequence)
@@ -131,7 +117,7 @@ class RNNCell(object):
   LSTM (Long Short Term Memory) or GRU (Gated Recurrent Unit), and a number
   of operators that allow add dropouts, projections, or embeddings for inputs.
   Constructing multi-layer cells is supported by the class `MultiRNNCell`,
-  or by calling the `rnn` ops several times. Every `RNNCell` must have the
+  or by calling the `rnn` tf several times. Every `RNNCell` must have the
   properties below and and implement `__call__` with the following signature.
   """
 
@@ -183,14 +169,14 @@ class RNNCell(object):
     if _is_sequence(state_size):
       state_size_flat = _unpacked_state(state_size)
       zeros_flat = [
-          array_ops.zeros(array_ops.pack([batch_size, s]), dtype=dtype)
+          tf.zeros(tf.pack([batch_size, s]), dtype=dtype)
           for s in state_size_flat]
       for s, z in zip(state_size_flat, zeros_flat):
         z.set_shape([None, s])
       zeros = _packed_state(structure=state_size, state=zeros_flat)
     else:
-      zeros = array_ops.zeros(
-          array_ops.pack([batch_size, state_size]), dtype=dtype)
+      zeros = tf.zeros(
+          tf.pack([batch_size, state_size]), dtype=dtype)
       zeros.set_shape([None, state_size])
 
     return zeros
@@ -199,7 +185,7 @@ class RNNCell(object):
 class BasicRNNCell(RNNCell):
   """The most basic RNN cell."""
 
-  def __init__(self, num_units, input_size=None, activation=tanh):
+  def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
       logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
@@ -213,17 +199,17 @@ class BasicRNNCell(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, scope=None):
+  def __call__(self, inputs, state, rand, scope=None):
     """Most basic RNN: output = new_state = activation(W * input + U * state + B)."""
-    with vs.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-      output = self._activation(_linear([inputs, state], self._num_units, True))
+    with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+      output = self._activation(_linear([inputs, state], rand, self._num_units, True))
     return output, output
 
 
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
 
-  def __init__(self, num_units, input_size=None, activation=tanh):
+  def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
       logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
@@ -239,13 +225,13 @@ class GRUCell(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Gated recurrent unit (GRU) with nunits cells."""
-    with vs.variable_scope(scope or type(self).__name__):  # "GRUCell"
-      with vs.variable_scope("Gates"):  # Reset gate and update gate.
+    with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+      with tf.variable_scope("Gates"):  # Reset gate and update gate.
         # We start with bias of 1.0 to not reset and not update.
-        r, u = array_ops.split(1, 2, _linear([inputs, state],
+        r, u = tf.split(1, 2, _linear([inputs, state],
                                              2 * self._num_units, True, 1.0))
         r, u = sigmoid(r), sigmoid(u)
-      with vs.variable_scope("Candidate"):
+      with tf.variable_scope("Candidate"):
         c = self._activation(_linear([inputs, r * state],
                                      self._num_units, True))
       new_h = u * state + (1 - u) * c
@@ -280,7 +266,7 @@ class BasicLSTMCell(RNNCell):
   """
 
   def __init__(self, num_units, forget_bias=1.0, input_size=None,
-               state_is_tuple=False, activation=tanh):
+               state_is_tuple=False, activation=tf.nn.tanh):
     """Initialize the basic LSTM cell.
 
     Args:
@@ -314,16 +300,16 @@ class BasicLSTMCell(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Long short-term memory cell (LSTM)."""
-    with vs.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
+    with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
       # Parameters of gates are concatenated into one multiply for efficiency.
       if self._state_is_tuple:
         c, h = state
       else:
-        c, h = array_ops.split(1, 2, state)
+        c, h = tf.split(1, 2, state)
       concat = _linear([inputs, h], 4 * self._num_units, True)
 
       # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-      i, j, f, o = array_ops.split(1, 4, concat)
+      i, j, f, o = tf.split(1, 4, concat)
 
       new_c = (c * sigmoid(f + self._forget_bias) + sigmoid(i) *
                self._activation(j))
@@ -332,7 +318,7 @@ class BasicLSTMCell(RNNCell):
       if self._state_is_tuple:
         new_state = LSTMStateTuple(new_c, new_h)
       else:
-        new_state = array_ops.concat(1, [new_c, new_h])
+        new_state = tf.concat(1, [new_c, new_h])
       return new_h, new_state
 
 
@@ -343,13 +329,13 @@ def _get_concat_variable(name, shape, dtype, num_shards):
     return sharded_variable[0]
 
   concat_name = name + "/concat"
-  concat_full_name = vs.get_variable_scope().name + "/" + concat_name + ":0"
-  for value in ops.get_collection(ops.GraphKeys.CONCATENATED_VARIABLES):
+  concat_full_name = tf.get_variable_scope().name + "/" + concat_name + ":0"
+  for value in tf.get_collection(tf.GraphKeys.CONCATENATED_VARIABLES):
     if value.name == concat_full_name:
       return value
 
-  concat_variable = array_ops.concat(0, sharded_variable, name=concat_name)
-  ops.add_to_collection(ops.GraphKeys.CONCATENATED_VARIABLES,
+  concat_variable = tf.concat(0, sharded_variable, name=concat_name)
+  tf.add_to_collection(tf.GraphKeys.CONCATENATED_VARIABLES,
                         concat_variable)
   return concat_variable
 
@@ -367,7 +353,7 @@ def _get_sharded_variable(name, shape, dtype, num_shards):
     current_size = unit_shard_size
     if i < remaining_rows:
       current_size += 1
-    shards.append(vs.get_variable(name + "_%d" % i, [current_size] + shape[1:],
+    shards.append(tf.get_variable(name + "_%d" % i, [current_size] + shape[1:],
                                   dtype=dtype))
   return shards
 
@@ -399,7 +385,7 @@ class LSTMCell(RNNCell):
                initializer=None, num_proj=None,
                num_unit_shards=1, num_proj_shards=1,
                forget_bias=1.0, state_is_tuple=False,
-               activation=tanh):
+               activation=tf.nn.tanh):
     """Initialize the parameters for an LSTM cell.
 
     Args:
@@ -490,35 +476,35 @@ class LSTMCell(RNNCell):
     if self._state_is_tuple:
       (c_prev, m_prev) = state
     else:
-      c_prev = array_ops.slice(state, [0, 0], [-1, self._num_units])
-      m_prev = array_ops.slice(state, [0, self._num_units], [-1, num_proj])
+      c_prev = tf.slice(state, [0, 0], [-1, self._num_units])
+      m_prev = tf.slice(state, [0, self._num_units], [-1, num_proj])
 
     dtype = inputs.dtype
     input_size = inputs.get_shape().with_rank(2)[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
-    with vs.variable_scope(scope or type(self).__name__,
+    with tf.variable_scope(scope or type(self).__name__,
                            initializer=self._initializer):  # "LSTMCell"
       concat_w = _get_concat_variable(
           "W", [input_size.value + num_proj, 4 * self._num_units],
           dtype, self._num_unit_shards)
 
-      b = vs.get_variable(
+      b = tf.get_variable(
           "B", shape=[4 * self._num_units],
-          initializer=array_ops.zeros_initializer, dtype=dtype)
+          initializer=tf.zeros_initializer, dtype=dtype)
 
       # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-      cell_inputs = array_ops.concat(1, [inputs, m_prev])
-      lstm_matrix = nn_ops.bias_add(math_ops.matmul(cell_inputs, concat_w), b)
-      i, j, f, o = array_ops.split(1, 4, lstm_matrix)
+      cell_inputs = tf.concat(1, [inputs, m_prev])
+      lstm_matrix = tf.nn.bias_add(tf.matmul(cell_inputs, concat_w), b)
+      i, j, f, o = tf.split(1, 4, lstm_matrix)
 
       # Diagonal connections
       if self._use_peepholes:
-        w_f_diag = vs.get_variable(
+        w_f_diag = tf.get_variable(
             "W_F_diag", shape=[self._num_units], dtype=dtype)
-        w_i_diag = vs.get_variable(
+        w_i_diag = tf.get_variable(
             "W_I_diag", shape=[self._num_units], dtype=dtype)
-        w_o_diag = vs.get_variable(
+        w_o_diag = tf.get_variable(
             "W_O_diag", shape=[self._num_units], dtype=dtype)
 
       if self._use_peepholes:
@@ -530,7 +516,7 @@ class LSTMCell(RNNCell):
 
       if self._cell_clip is not None:
         # pylint: disable=invalid-unary-operand-type
-        c = clip_ops.clip_by_value(c, -self._cell_clip, self._cell_clip)
+        c = tf.clip_by_value(c, -self._cell_clip, self._cell_clip)
         # pylint: enable=invalid-unary-operand-type
 
       if self._use_peepholes:
@@ -543,10 +529,10 @@ class LSTMCell(RNNCell):
             "W_P", [self._num_units, self._num_proj],
             dtype, self._num_proj_shards)
 
-        m = math_ops.matmul(m, concat_w_proj)
+        m = tf.matmul(m, concat_w_proj)
 
     new_state = (LSTMStateTuple(c, m) if self._state_is_tuple
-                 else array_ops.concat(1, [c, m]))
+                 else tf.concat(1, [c, m]))
     return m, new_state
 
 
@@ -589,7 +575,7 @@ class OutputProjectionWrapper(RNNCell):
     """Run the cell and output projection on inputs, starting from state."""
     output, res_state = self._cell(inputs, state)
     # Default scope: "OutputProjectionWrapper"
-    with vs.variable_scope(scope or type(self).__name__):
+    with tf.variable_scope(scope or type(self).__name__):
       projected = _linear(output, self._output_size, True)
     return projected, res_state
 
@@ -631,7 +617,7 @@ class InputProjectionWrapper(RNNCell):
   def __call__(self, inputs, state, scope=None):
     """Run the input projection and then the cell."""
     # Default scope: "InputProjectionWrapper"
-    with vs.variable_scope(scope or type(self).__name__):
+    with tf.variable_scope(scope or type(self).__name__):
       projected = _linear(inputs, self._num_proj, True)
     return self._cell(projected, state)
 
@@ -684,11 +670,11 @@ class DropoutWrapper(RNNCell):
     """Run the cell with the declared dropouts."""
     if (not isinstance(self._input_keep_prob, float) or
         self._input_keep_prob < 1):
-      inputs = nn_ops.dropout(inputs, self._input_keep_prob, seed=self._seed)
+      inputs = tf.nn.dropout(inputs, self._input_keep_prob, seed=self._seed)
     output, new_state = self._cell(inputs, state)
     if (not isinstance(self._output_keep_prob, float) or
         self._output_keep_prob < 1):
-      output = nn_ops.dropout(output, self._output_keep_prob, seed=self._seed)
+      output = tf.nn.dropout(output, self._output_keep_prob, seed=self._seed)
     return output, new_state
 
 
@@ -735,21 +721,21 @@ class EmbeddingWrapper(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Run the cell on embedded inputs."""
-    with vs.variable_scope(scope or type(self).__name__):  # "EmbeddingWrapper"
-      with ops.device("/cpu:0"):
+    with tf.variable_scope(scope or type(self).__name__):  # "EmbeddingWrapper"
+      with tf.device("/cpu:0"):
         if self._initializer:
           initializer = self._initializer
-        elif vs.get_variable_scope().initializer:
-          initializer = vs.get_variable_scope().initializer
+        elif tf.get_variable_scope().initializer:
+          initializer = tf.get_variable_scope().initializer
         else:
           # Default initializer for embeddings should have variance=1.
           sqrt3 = math.sqrt(3)  # Uniform(-sqrt(3), sqrt(3)) has variance=1.
-          initializer = init_ops.random_uniform_initializer(-sqrt3, sqrt3)
-        embedding = vs.get_variable("embedding", [self._embedding_classes,
+          initializer = tf.random_uniform_initializer(-sqrt3, sqrt3)
+        embedding = tf.get_variable("embedding", [self._embedding_classes,
                                                   self._embedding_size],
                                     initializer=initializer)
-        embedded = embedding_ops.embedding_lookup(
-            embedding, array_ops.reshape(inputs, [-1]))
+        embedded = tf.embedding_lookup(
+            embedding, tf.reshape(inputs, [-1]))
     return self._cell(embedded, state)
 
 
@@ -792,12 +778,12 @@ class MultiRNNCell(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Run this multi-layer cell on inputs, starting from state."""
-    with vs.variable_scope(scope or type(self).__name__):  # "MultiRNNCell"
+    with tf.variable_scope(scope or type(self).__name__):  # "MultiRNNCell"
       cur_state_pos = 0
       cur_inp = inputs
       new_states = []
       for i, cell in enumerate(self._cells):
-        with vs.variable_scope("Cell%d" % i):
+        with tf.variable_scope("Cell%d" % i):
           if self._state_is_tuple:
             if not _is_sequence(state):
               raise ValueError(
@@ -805,13 +791,13 @@ class MultiRNNCell(RNNCell):
                   % (len(self.state_size), state))
             cur_state = state[i]
           else:
-            cur_state = array_ops.slice(
+            cur_state = tf.slice(
                 state, [0, cur_state_pos], [-1, cell.state_size])
             cur_state_pos += cell.state_size
           cur_inp, new_state = cell(cur_inp, cur_state)
           new_states.append(new_state)
     new_states = (tuple(new_states) if self._state_is_tuple
-                  else array_ops.concat(1, new_states))
+                  else tf.concat(1, new_states))
     return cur_inp, new_states
 
 
@@ -860,7 +846,7 @@ class _SlimRNNCell(RNNCell):
     return output, state
 
 
-def _linear(args, output_size, bias, bias_start=0.0, scope=None):
+def _linear(args, rand, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -894,15 +880,18 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
       total_arg_size += shape[1]
 
   # Now the computation.
-  with vs.variable_scope(scope or "Linear"):
-    matrix = vs.get_variable("Matrix", [total_arg_size, output_size])
+  with tf.variable_scope(scope or "Linear"):
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size], dtype=tf.float32)
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size], dtype=tf.float32)
+    # Element-wise multiplication
+    matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
     if len(args) == 1:
-      res = math_ops.matmul(args[0], matrix)
+      res = tf.matmul(args[0], matrix)
     else:
-      res = math_ops.matmul(array_ops.concat(1, args), matrix)
+      res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
       return res
-    bias_term = vs.get_variable(
+    bias_term = tf.get_variable(
         "Bias", [output_size],
-        initializer=init_ops.constant_initializer(bias_start))
+        initializer=tf.constant_initializer(bias_start))
   return res + bias_term

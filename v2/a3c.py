@@ -17,7 +17,7 @@ from snf import SNF
 from diagnostics import proportion_zeros
 
 from constants import num_threads, max_time_steps, \
-	log_file, rmsp_epsilon, rmsp_alpha, grad_norm_clip, \
+	log_file, rmsp_epsilon, rmsp_momentum, rmsp_alpha, grad_norm_clip, \
 	use_rnn, summary_freq, save_path
 
 	
@@ -85,7 +85,7 @@ with graph.as_default(), tf.Session() as sess:
 
 	grad_applier = RMSPropApplier(learning_rate = learning_rate_input,
 									decay = rmsp_alpha,
-									momentum = 0.0,
+									momentum = rmsp_momentum,
 									epsilon = rmsp_epsilon,
 									clip_norm = grad_norm_clip)
 				
