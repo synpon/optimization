@@ -34,7 +34,7 @@ class SNF(object):
 									state_ops.means: self.means, 
 									state_ops.variances: self.variances, 
 									state_ops.weights: self.weights})
-		return grads[0]
+		return np.reshape(grads[0],[1,m,1])
 		
 		
 	def gen_points(self,num_points):
@@ -51,6 +51,7 @@ class SNF(object):
 	
 	
 	def act(self, state, action, state_ops, sess):
+		action = np.reshape(action,[m,1])
 		state.point += action		
 		loss = self.calc_loss(state.point, state_ops, sess)
 		reward = -loss
@@ -79,7 +80,7 @@ class StateOps:
 		self.loss = tf.reduce_mean(losses,reduction_indices=[0]) # Mean over the dimensions
 		
 		self.grads = tf.gradients(self.loss,self.point)[0]
-		self.grads = tf.reshape(self.grads,[m,1])
+		self.grads = tf.reshape(self.grads,[1,m,1])
 		
 		
 class State(object):
@@ -92,7 +93,7 @@ class State(object):
 		self.grads = snf.calc_grads(self.point, state_ops, sess)
 		
 		if grad_noise > 0:
-			self.grads += np.abs(self.grads)*grad_noise*np.random.random((m,1))
+			self.grads += np.abs(self.grads)*grad_noise*np.random.random((1,m,1))
 
 			
 			

@@ -14,10 +14,10 @@ class A3CNet(object):
 	def prepare_loss(self, entropy_beta):
 	
 		# Taken action (input for policy)
-		self.a = tf.placeholder(tf.float32, [m,1], 'a')
+		self.a = tf.placeholder(tf.float32, [None,m,1], 'a')
 	
 		# Temporal difference (R-V) (input for policy)
-		self.td = tf.placeholder(tf.float32, [1], 'td')
+		self.td = tf.placeholder(tf.float32, [None], 'td')
 		
 		# Entropy of the policy
 		# Entropy encourages exploration, which it is positively correlated with. 
@@ -29,7 +29,7 @@ class A3CNet(object):
 		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
 
 		# R (input for value)
-		self.r = tf.placeholder(tf.float32, [1], 'r')
+		self.r = tf.placeholder(tf.float32, [None], 'r')
 
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
@@ -75,10 +75,10 @@ class A3CRNN(A3CNet):
 	def __init__(self, num_trainable_vars):		
 		### Add regularization of the parameters to control bias etc.?
 		# Input
-		self.grads = tf.placeholder(tf.float32, [m,1])
-		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
+		self.grads = tf.placeholder(tf.float32, [None,m,1])
+		self.update = tf.placeholder(tf.float32, [None,m,1], 'update') # Coordinate update
 		#self.rand = tf.placeholder_with_default(input=tf.zeros([m,1],tf.float32), shape=[m,1])
-		self.rand = tf.placeholder(tf.float32, [m,1])
+		self.rand = tf.placeholder(tf.float32, [None,m,1])
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
@@ -97,14 +97,24 @@ class A3CRNN(A3CNet):
 			elif rnn_type == 'lstm':
 				self.cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_size)
 
-			self.rnn_state = tf.zeros([m,rnn_size])
-
 			if rnn_type == 'lstm':
 				raise NotImplementedError
 			
-			grads = tf.reshape(grads,[m,1])
-			#output,rnn_state_out = self.cell(grads, self.rnn_state, self.rand)
-			output,rnn_state_out = self.cell(grads, self.rnn_state)
+			grads = tf.reshape(grads,[1,m,1])
+			
+			# placeholder for RNN unrolling time step size.
+			self.step_size = tf.placeholder(tf.float32, [1])
+
+			# Unrolling LSTM up to LOCAL_T_MAX time steps. (= 5time steps.)
+			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
+			# Unrolling step size is applied via self.step_size placeholder.
+			# When forward propagating, step_size is 1.
+			output, rnn_state_out = tf.nn.dynamic_rnn(self.cell,
+									grads,
+									initial_state = self.rnn_state,
+									sequence_length = self.step_size,
+									time_major = False)			
+			
 			output = tf.reshape(output,[m,rnn_size])
 			self.output = output
 			self.rnn_state_out = rnn_state_out
@@ -152,8 +162,9 @@ class A3CFF(A3CNet):
 	def __init__(self, num_trainable_vars):
 	
 		# Input
-		self.grads = tf.placeholder(tf.float32, [m,1], 'grads')
-		self.update = tf.placeholder(tf.float32, [m,1], 'update') # Coordinate update
+		# Third dimension is the number of features
+		self.grads = tf.placeholder(tf.float32, [None,m,1], 'grads')
+		self.update = tf.placeholder(tf.float32, [None,m,1], 'update') # Coordinate update
 		self.rand = tf.placeholder_with_default(input=0.0, shape=[])
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
@@ -173,11 +184,11 @@ class A3CFF(A3CNet):
 			self.b2 = bias_vector(1,1)
 
 			# policy
-			self.mean = tf.matmul(grads, self.W1) + self.b1
-			self.variance = tf.maximum(0.01,tf.nn.relu(tf.matmul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
+			self.mean = tf.mul(grads, self.W1) + self.b1
+			self.variance = tf.maximum(0.01,tf.nn.relu(tf.mul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
 			
 			# value - linear output layer
-			grads_and_update = tf.concat(1, [self.grads, self.update])
+			grads_and_update = tf.concat(2, [self.grads, self.update])
 
 			# Twice as many inputs since grads and update are concatenated to make the input
 			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
@@ -213,11 +224,19 @@ def bias_vector(num_in, num_out):
 		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
 
 def fc_layer(layer_in, num_in, num_out, activation_fn):
+	# [batch_size x m x num_in] x [num_in x num_out] = [batch_size x m x num_out]
+	batch_size = tf.shape(layer_in)[0]
+	
 	W = weight_matrix(num_in, num_out)
+	W = tf.reshape(W,[1,num_in,num_out])
+	W = tf.tile(W,tf.pack([batch_size,1,1]))
+	
 	b = bias_vector(num_in, num_out)
-	out = tf.matmul(layer_in, W) + b
+	
+	out = tf.batch_matmul(layer_in, W) + b
 	if activation_fn != None:
 		out = activation_fn(out)
+		
 	return out
 		
 		

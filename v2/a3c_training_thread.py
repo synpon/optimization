@@ -65,9 +65,6 @@ class A3CTrainingthread(object):
 		values = []#[1.0] ### 1.0 is the value of the first state - causes the weights to increase in FF - why?
 		
 		terminal_end = False
-		
-		if use_rnn:
-			self.local_network.reset_rnn_state(1,m)
 			
 		# reset accumulated gradients
 		sess.run(self.reset_gradients)
@@ -79,6 +76,9 @@ class A3CTrainingthread(object):
 		
 		self.snf = SNF() # Generate a new landscape
 		state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
+		
+		if use_rnn:
+			start_rnn_state = self.local_network.rnn_state_out
 
 		discounted_reward = 0
 		value_ = 1.0
@@ -114,6 +114,7 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
+				#states.append(state)
 				terminal_end = True
 				discounted_reward = (discount_rate**i)*self.episode_reward
 				self.episode_reward = 0
@@ -134,20 +135,53 @@ class A3CTrainingthread(object):
 		rewards.reverse()
 		values.reverse()
 		
+		batch_a = []
+		batch_grads = []
+		batch_td = []
+		batch_R = []
+		
 		# compute and accumulate gradients
 		for (a, r, state, V) in zip(actions, rewards, states, values):
 			R = r + discount_rate * R
 			td = R - V # temporal difference
 			
-			# grads is the state, here
+			batch_a.append(a)
+			batch_grads.append(state.grads)
+			batch_td.append(td)
+			batch_R.append(R)
+		
+		# grads is the state, here		
+		if use_rnn:
+			batch_a.reverse()
+			batch_grads.reverse()
+			batch_td.reverse()
+			batch_R.reverse()
+			
+			batch_grads = np.concatenate(batch_grads, axis=0)
+			batch_a = np.concatenate(batch_a, axis=0)
+				
 			sess.run(self.accum_gradients,
 								feed_dict = {
-									self.local_network.grads: state.grads,
-									self.local_network.update: a,
+									self.local_network.grads: batch_grads,
+									self.local_network.update: batch_a,
 									###self.local_network.rand: random.uniform(-1,1),
-									self.local_network.a: a,
-									self.local_network.td: [td],
-									self.local_network.r: [R]})
+									self.local_network.a: batch_a,
+									self.local_network.td: batch_td,
+									self.local_network.r: batch_R,
+									self.local_network.initial_rnn_state: start_rnn_state,
+									self.local_network.step_size: [len(batch_a)]})
+		else:
+			batch_grads = np.concatenate(batch_grads, axis=0)
+			batch_a = np.concatenate(batch_a, axis=0)
+			
+			sess.run(self.accum_gradients,
+								feed_dict = {
+									self.local_network.grads: batch_grads,
+									self.local_network.update: batch_a,
+									###self.local_network.rand: random.uniform(-1,1),
+									self.local_network.a: batch_a,
+									self.local_network.td: batch_td,
+									self.local_network.r: batch_R})		
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
