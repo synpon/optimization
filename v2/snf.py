@@ -91,8 +91,7 @@ class State(object):
 		
 		
 	def calc_and_set_grads(self, snf, state_ops, sess):
-		self.grads = snf.calc_grads(self.point, state_ops, sess)
-		
+		self.grads = snf.calc_grads(self.point, state_ops, sess) # [1,m,1]
 		if grad_noise > 0:
 			self.grads += np.abs(self.grads)*grad_noise*np.random.random((1,m,1))
 

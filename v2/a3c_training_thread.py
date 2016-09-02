@@ -116,7 +116,7 @@ class A3CTrainingthread(object):
 				self.episode_reward = 0
 				state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
-					self.local_network.reset_rnn_state(1,m)
+					self.local_network.reset_rnn_state()
 				break
 
 		R = 0.0
@@ -166,7 +166,7 @@ class A3CTrainingthread(object):
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R,
 									self.local_network.initial_rnn_state: start_rnn_state,
-									self.local_network.step_size: [step_size]})
+									self.local_network.step_size: step_size*np.ones([m])})
 		else:
 			batch_grads = np.concatenate(batch_grads, axis=0)
 			batch_a = np.concatenate(batch_a, axis=0)

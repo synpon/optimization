@@ -96,20 +96,17 @@ class A3CRNN(A3CNet):
 				raise NotImplementedError
 			
 			# placeholder for RNN unrolling time step size.
-			self.step_size = tf.placeholder(tf.float32, [1])
+			self.step_size = tf.placeholder(tf.int32, [1])
+			self.step_size = tf.tile(self.step_size, [m]) # m acts as the batch size
 			
-			self.initial_rnn_state = tf.placeholder(tf.float32, [1,self.cell.state_size])
+			self.initial_rnn_state = tf.placeholder(tf.float32, [m,self.cell.state_size])
+			
+			grads = tf.transpose(grads, perm=[1,0,2])
 
 			# Unrolling LSTM up to LOCAL_T_MAX time steps. (= 5time steps.)
 			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, step_size is 1.
-			### Won't work unless dynamic_rnn is altered since it's 3D now
-			### Could solve the problem by flattening the input so it's [batch_size x m, ]
-			#grads = tf.reshape(grads,[-1])
-			
-			#scope = "net_" + str(thread_index)
-			
 			output, rnn_state = tf.nn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
@@ -117,13 +114,13 @@ class A3CRNN(A3CNet):
 									time_major = False)#,
 									#scope = scope)			
 			
-			self.output = tf.reshape(output,[m,rnn_size])
-			self.rnn_state = rnn_state ###
+			self.output = tf.reshape(output,tf.pack([self.step_size[0],m,self.cell.state_size]))		
+			self.rnn_state = rnn_state # [m, cell.state_size]
 		
 			# policy
-			self.mean = fc_layer(output, num_in=rnn_size, num_out=1, activation_fn=None)
+			self.mean = fc_layer(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=None)
 
-			h = fc_layer(output, num_in=rnn_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
+			h = fc_layer(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
 			self.variance = tf.maximum(0.01,h)
 			
 			# value - linear output layer
@@ -142,7 +139,7 @@ class A3CRNN(A3CNet):
 			
 	def run_policy(self, sess, grads):
 		# Updates the RNN state
-		feed_dict = {self.grads:grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:[1]}
+		feed_dict = {self.grads:grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
 		[mean, variance, self.rnn_state_out] = sess.run([self.mean,self.variance, self.rnn_state], feed_dict=feed_dict)
 		variance = np.maximum(variance,0.01)
 		return mean, variance
@@ -151,7 +148,7 @@ class A3CRNN(A3CNet):
 	def run_value(self, sess, grads, update):
 		# Does not update the RNN state
 		prev_rnn_state_out = self.rnn_state_out
-		feed_dict = {self.grads:grads, self.update:update, self.initial_rnn_state:self.rnn_state_out, self.step_size:[1]}
+		feed_dict = {self.grads:grads, self.update:update, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
 		[v_out, self.rnn_state_out] = sess.run([self.v, self.rnn_state], feed_dict=feed_dict)		
 
 	    # roll back RNN state
@@ -161,7 +158,7 @@ class A3CRNN(A3CNet):
 		
 		
 	def reset_rnn_state(self):
-		self.rnn_state_out = np.zeros([1,self.cell.state_size])
+		self.rnn_state_out = np.zeros([m,self.cell.state_size])
 		
 		
 # Feed-forward
@@ -239,7 +236,6 @@ def fc_layer(layer_in, num_in, num_out, activation_fn):
 	W = tf.tile(W,tf.pack([batch_size,1,1]))
 	
 	b = bias_vector(num_in, num_out)
-	
 	out = tf.batch_matmul(layer_in, W) + b
 	if activation_fn != None:
 		out = activation_fn(out)
