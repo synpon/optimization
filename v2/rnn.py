@@ -5,13 +5,6 @@ from __future__ import print_function
 import rnn_cell
 
 
-# pylint: disable=protected-access
-_is_sequence = rnn_cell._is_sequence
-_unpacked_state = rnn_cell._unpacked_state
-_packed_state = rnn_cell._packed_state
-# pylint: enable=protected-access
-
-
 def rnn(cell, inputs, initial_state=None, dtype=None,
         sequence_length=None, scope=None):
   """Creates a recurrent neural network specified by RNNCell `cell`.

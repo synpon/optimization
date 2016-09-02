@@ -48,7 +48,9 @@ class A3CTrainingthread(object):
 
 		self.sync = self.local_network.sync_from(global_network)
 		self.local_t = 0
-		self.W = global_network.W1
+		
+		if not use_rnn:
+			self.W = global_network.W1
 
 
 	def _anneal_learning_rate(self, global_time_step):
@@ -84,20 +86,14 @@ class A3CTrainingthread(object):
 		value_ = 1.0
 		
 		for i in range(local_t_max):
-			if use_rnn:
-				mean,variance = self.local_network.run_policy(sess, state.grads, update_rnn_state=True)
-			else:
-				mean,variance = self.local_network.run_policy(sess, state.grads)
+			mean,variance = self.local_network.run_policy(sess, state.grads)
 			
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
 
 			# Calculate the value of next_state
-			if use_rnn:
-				v = self.local_network.run_value(sess, state.grads, action, update_rnn_state=False)
-			else:
-				v = self.local_network.run_value(sess, state.grads, action)
+			v = self.local_network.run_value(sess, state.grads, action)
 
 			value_ *= v
 			values.append(value_)
@@ -157,6 +153,7 @@ class A3CTrainingthread(object):
 			batch_td.reverse()
 			batch_R.reverse()
 			
+			step_size = len(batch_a)
 			batch_grads = np.concatenate(batch_grads, axis=0)
 			batch_a = np.concatenate(batch_a, axis=0)
 				
@@ -169,7 +166,7 @@ class A3CTrainingthread(object):
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R,
 									self.local_network.initial_rnn_state: start_rnn_state,
-									self.local_network.step_size: [len(batch_a)]})
+									self.local_network.step_size: [step_size]})
 		else:
 			batch_grads = np.concatenate(batch_grads, axis=0)
 			batch_a = np.concatenate(batch_a, axis=0)
