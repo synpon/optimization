@@ -1,7 +1,7 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_size
+from constants import use_rnn, rnn_size, m
 
 class MLP:
 	def __init__(self, opt_net):
@@ -47,17 +47,18 @@ class MLP:
 		grads = tf.concat(0,grads)
 		trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 		
-		if use_rnn:
-			grads = tf.reshape(grads,[num_params,1])
-			opt_net.rnn_state = tf.zeros([num_params,rnn_size])
-			output,_ = opt_net.cell(grads, opt_net.rnn_state)
-			output = tf.reshape(output,[num_params,rnn_size])
-			updates = tf.matmul(output, opt_net.W1) + opt_net.b1 ### Doesn't work due to the use of fc_layer - requires reuse to use here
-		else:
-			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
+		#if use_rnn:
+		#	grads = tf.reshape(grads,[num_params,1])
+		#	opt_net.rnn_state = tf.zeros([num_params,rnn_size])
+		#	output,_ = opt_net.cell(grads, opt_net.rnn_state)
+		#	output = tf.reshape(output,[num_params,rnn_size])
+		#	updates = tf.matmul(output, opt_net.W1) + opt_net.b1 ### Doesn't work due to the use of fc_layer - requires reuse to use here
+		#else:
+		#	updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
-		self.opt_net_train_step = opt_net.update_params(trainable_variables, updates)
+		update = tf.reshape(opt_net.mean,shape=[m,1])
+		self.opt_net_train_step = opt_net.update_params(trainable_variables, update)
 		
 		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
 		self.init = tf.initialize_variables(vars)

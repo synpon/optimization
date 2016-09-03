@@ -5,10 +5,13 @@ from constants import use_rnn, rnn_size
 
 # https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
 
+def max_pool_2x2(tensor_in):
+	return tf.nn.max_pool(tensor_in, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
 class CNN:
 	def __init__(self, opt_net):
 		self.batch_size = 1 # 32
-		self.batches = 1000 ### Adjust
+		self.batches = 10000 ### Adjust
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -17,13 +20,24 @@ class CNN:
 		# The scope is used to identify the right gradients to optimize
 		with tf.variable_scope("mnist"):
 			x = tf.reshape(self.x, shape=[-1, 28, 28, 1])
-			h = tf.contrib.layers.convolution2d(x, num_outputs=16, kernel_size=[8,8], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
-			h = tf.nn.max_pool(h, ksize=[1,4,4,1], strides=[1,2,2,1], padding='SAME')
-			h = tf.contrib.layers.convolution2d(h, num_outputs=32, kernel_size=[4,4], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
-			h = tf.nn.max_pool(h, ksize=[1,4,4,1], strides=[1,2,2,1], padding='SAME')
-			#h = tf.contrib.layers.convolution2d(h, num_outputs=128, kernel_size=[2,2], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu)
-			#h = tf.nn.max_pool(h, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
-			h = tf.reshape(h, shape=[self.batch_size,1568])
+
+			h = tf.reduce_max(tf.contrib.layers.conv2d(x, 12, [3, 3]), [1, 2])
+			h = tf.reshape(h, [-1, 12])
+			#with tf.variable_scope('conv_layer1'):
+			#	h = tf.contrib.learn.ops.conv2d(x, n_filters=32, filter_shape=[5, 5], bias=True, activation=tf.nn.relu)
+			#	h = max_pool_2x2(h)
+			
+			#with tf.variable_scope('conv_layer2'):
+				# second conv layer will compute 64 features for each 5x5 patch.
+			#	h_conv2 = tf.contrib.learn.ops.conv2d(h_pool1, n_filters=64, filter_shape=[5, 5], bias=True, activation=tf.nn.relu)
+			#	h_pool2 = max_pool_2x2(h_conv2)
+			
+				# reshape tensor into a batch of vectors
+				#h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
+			
+			# densely connected layer with 1024 neurons.
+			#h = tf.contrib.layers.fully_connected(inputs=h, num_outputs=1024, activation_fn=tf.nn.relu)
+
 			y = tf.contrib.layers.fully_connected(inputs=h, num_outputs=10, activation_fn=tf.nn.softmax)
 			
 		y = tf.clip_by_value(y, 1e-10, 1.0) # Prevent log(0) in the cross-entropy calculation
@@ -53,17 +67,17 @@ class CNN:
 		grads = tf.concat(0,grads)
 		trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 		
-		if use_rnn:
-			grads = tf.reshape(grads,[None,1])
-			opt_net.rnn_state = tf.zeros([None,rnn_size])
-			output,_ = opt_net.cell(grads, opt_net.rnn_state)
-			output = tf.reshape(output,[None,rnn_size])
-			updates = tf.matmul(output, opt_net.W1) + opt_net.b1
-		else:
-			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
+		#if use_rnn:
+		#	grads = tf.reshape(grads,[-1,1])
+		#	opt_net.rnn_state = tf.zeros([-1,rnn_size])
+		#	output,_ = opt_net.cell(grads, opt_net.rnn_state)
+		#	output = tf.reshape(output,[-1,rnn_size])
+		#	updates = tf.matmul(output, opt_net.W1) + opt_net.b1
+		#else:
+		#updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
 		# Apply updates to the parameters in the train net.
-		self.opt_net_train_step = opt_net.update_params(trainable_variables, updates)
+		#self.opt_net_train_step = opt_net.update_params(trainable_variables, updates)
 		
 		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
 		self.init = tf.initialize_variables(vars)

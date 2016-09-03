@@ -2,12 +2,13 @@ from __future__ import division
 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import numpy as np
 
 from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
 from ac_network import A3CRNN, A3CFF
-from constants import use_rnn, summaries_dir, save_path
+from constants import use_rnn, summaries_dir, save_path, m, rnn_size
 
 sess = tf.Session()
 
@@ -23,7 +24,7 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-net = MLP(opt_net)
+net = CNN(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
@@ -64,9 +65,10 @@ adam_writer.close()
 
 for i in range(10):
 	sess.run(net.init) # Reset parameters of net to be trained
+	rnn_state = np.zeros([m,rnn_size])
 	for j in range(net.batches):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
-		summary,_ = sess.run([merged, net.opt_net_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
+		summary,_ = sess.run([merged, net.opt_net_train_step, opt_net.rnn_state], feed_dict={net.x: batch_x, net.y_: batch_y, opt_net.initial_rnn_state:rnn_state}) ###
 		opt_net_writer.add_summary(summary,j)
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 	print "Opt net accuracy: %f" % accuracy

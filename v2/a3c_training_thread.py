@@ -83,6 +83,7 @@ class A3CTrainingthread(object):
 			start_rnn_state = self.local_network.rnn_state_out
 
 		value_ = 1.0
+		self.episode_reward = 0
 		
 		for i in range(local_t_max):
 			mean,variance = self.local_network.run_policy(sess, state.grads)
