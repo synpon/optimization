@@ -86,7 +86,7 @@ class A3CRNN(A3CNet):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			if rnn_type == 'rnn':
-				self.cell = tf.nn.rnn_cell.BasicRNNCell(rnn_size)
+				self.cell = tf.nn.rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
 			elif rnn_type == 'gru':
 				self.cell = tf.nn.rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':

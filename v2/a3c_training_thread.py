@@ -82,12 +82,11 @@ class A3CTrainingthread(object):
 		if use_rnn:
 			start_rnn_state = self.local_network.rnn_state_out
 
-		discounted_reward = 0
 		value_ = 1.0
 		
 		for i in range(local_t_max):
 			mean,variance = self.local_network.run_policy(sess, state.grads)
-			
+
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			states.append(state)
 			actions.append(action)
@@ -111,10 +110,8 @@ class A3CTrainingthread(object):
 				
 			if terminal: 
 				#states.append(state)
-				terminal_end = True
-				discounted_reward = (discount_rate**i)*self.episode_reward
-				self.episode_reward = 0
-				state = State(self.snf,self.state_ops,sess)
+				#terminal_end = True
+				#state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state()
 				break
@@ -122,7 +119,7 @@ class A3CTrainingthread(object):
 		R = 0.0
 		#if not terminal_end:
 			# Remove the last value
-			#values = values[:-1] 
+		#	values = values[:-1] 
 		#	R = values[-1]
 
 		# Order from the final time point to the first
@@ -185,5 +182,5 @@ class A3CTrainingthread(object):
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 
 		diff_local_t = self.local_t - start_local_t
-		return diff_local_t, discounted_reward
+		return diff_local_t, self.episode_reward#, mean_loss
 		

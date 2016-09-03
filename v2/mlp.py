@@ -52,7 +52,7 @@ class MLP:
 			opt_net.rnn_state = tf.zeros([num_params,rnn_size])
 			output,_ = opt_net.cell(grads, opt_net.rnn_state)
 			output = tf.reshape(output,[num_params,rnn_size])
-			updates = tf.matmul(output, opt_net.W1) + opt_net.b1
+			updates = tf.matmul(output, opt_net.W1) + opt_net.b1 ### Doesn't work due to the use of fc_layer - requires reuse to use here
 		else:
 			updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
