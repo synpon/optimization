@@ -3,8 +3,8 @@ import random
 import tensorflow as tf
 import numpy as np
 
-#import rnn
-#import rnn_cell
+import rnn
+import rnn_cell
 from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
 
 
@@ -87,11 +87,11 @@ class A3CRNN(A3CNet):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			if rnn_type == 'rnn':
-				self.cell = tf.nn.rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
+				self.cell = rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
 			elif rnn_type == 'gru':
-				self.cell = tf.nn.rnn_cell.GRUCell(rnn_size)
+				self.cell = rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
-				self.cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_size)
+				self.cell = rnn_cell.BasicLSTMCell(rnn_size)
 
 			if rnn_type == 'lstm':
 				raise NotImplementedError
@@ -108,7 +108,7 @@ class A3CRNN(A3CNet):
 			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, step_size is 1.
-			output, rnn_state = tf.nn.dynamic_rnn(self.cell,
+			output, rnn_state = rnn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
 									sequence_length = self.step_size,

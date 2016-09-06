@@ -23,7 +23,7 @@ rmsp_epsilon = 1e-10 #0.1
 lr_high = 0.001 # upper limit for learning rate
 lr_low = 0.001 # lower limit for learning rate
 grad_norm_clip = 40.0
-rmsp_momentum = 0.0#.9
+rmsp_momentum = 0.0#0.9
 
 #===# Opt net constants #===#
 use_rnn = True # Uses a feed-forward network if false
@@ -41,7 +41,7 @@ grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 
-termination_prob = 0.003 # Can be used to control the trade-off between speed and the final loss.
+termination_prob = 0.003 # Can be used to control the trade-off between speed and the final loss, as the learning rate does.
 
 # Random noise is computed each time the point is processed while training the opt net
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.

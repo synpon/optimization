@@ -2,8 +2,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import tensorflow as tf
+
 import rnn_cell
 
+_is_sequence = rnn_cell._is_sequence
+_unpacked_state = rnn_cell._unpacked_state
+_packed_state = rnn_cell._packed_state
 
 def rnn(cell, inputs, initial_state=None, dtype=None,
         sequence_length=None, scope=None):
@@ -69,7 +74,7 @@ def rnn(cell, inputs, initial_state=None, dtype=None,
   # Create a new scope in which the caching device is either
   # determined by the parent scope, or is set to place the cached
   # Variable using the same placement as for the rest of the RNN.
-  with vs.variable_scope(scope or "RNN") as varscope:
+  with tf.variable_scope(scope or "RNN") as varscope:
     if varscope.caching_device is None:
       varscope.set_caching_device(lambda op: op.device)
 
@@ -87,7 +92,7 @@ def rnn(cell, inputs, initial_state=None, dtype=None,
     if fixed_batch_size.value:
       batch_size = fixed_batch_size.value
     else:
-      batch_size = tf..shape(inputs[0])[0]
+      batch_size = tf.shape(inputs[0])[0]
     if initial_state is not None:
       state = initial_state
     else:
@@ -97,13 +102,13 @@ def rnn(cell, inputs, initial_state=None, dtype=None,
       state = cell.zero_state(batch_size, dtype)
 
     if sequence_length is not None:  # Prepare variables
-      sequence_length = tf..to_int32(sequence_length)
-      zero_output = tf..zeros(
-          tf..pack([batch_size, cell.output_size]), inputs[0].dtype)
+      sequence_length = tf.to_int32(sequence_length)
+      zero_output = tf.zeros(
+          tf.pack([batch_size, cell.output_size]), inputs[0].dtype)
       zero_output.set_shape(
-          tf..TensorShape([fixed_batch_size.value, cell.output_size]))
-      min_sequence_length = tf..reduce_min(sequence_length)
-      max_sequence_length = tf..reduce_max(sequence_length)
+          tf.TensorShape([fixed_batch_size.value, cell.output_size]))
+      min_sequence_length = tf.reduce_min(sequence_length)
+      max_sequence_length = tf.reduce_max(sequence_length)
 
     for time, input_ in enumerate(inputs):
       if time > 0: varscope.reuse_variables()
@@ -171,7 +176,7 @@ def state_saving_rnn(cell, inputs, state_saver, state_name,
     state_size_flat = _unpacked_state(state_size)
 
     if len(state_name_flat) != len(state_size_flat):
-      raise ValueError("#elems(state_name) != #elems(state_size): %d vs. %d"
+      raise ValueError("#elems(state_name) != #elems(state_size): %d tf. %d"
                        % (len(state_name_flat), len(state_size_flat)))
 
     initial_state = _packed_state(
@@ -191,8 +196,8 @@ def state_saving_rnn(cell, inputs, state_saver, state_name,
   else:
     save_state = [state_saver.save_state(state_name, state)]
 
-  with tf..control_dependencies(save_state):
-    outputs[-1] = tf..identity(outputs[-1])
+  with tf.control_dependencies(save_state):
+    outputs[-1] = tf.identity(outputs[-1])
 
   return (outputs, state)
 
@@ -261,8 +266,8 @@ def _rnn_step(
     # the previous state & zero output, and which values should get
     # a calculated state & output.
     copy_cond = (time >= sequence_length)
-    return ([tf..select(copy_cond, zero_output, new_output)]
-            + [tf..select(copy_cond, old_s, new_s)
+    return ([tf.select(copy_cond, zero_output, new_output)]
+            + [tf.select(copy_cond, old_s, new_s)
                for (old_s, new_s) in zip(state, new_state)])
 
   def _maybe_copy_some_through():
@@ -276,7 +281,7 @@ def _rnn_step(
           "Input and output state tuple lengths do not match: %d vs. %d"
           % (len(state), len(new_state)))
 
-    return tf..cond(
+    return tf.cond(
         # if t < min_seq_len: calculate and return everything
         time < min_sequence_length, lambda: [new_output] + new_state,
         # else copy some of it through
@@ -295,14 +300,14 @@ def _rnn_step(
 
     if len(state) != len(new_state):
       raise ValueError(
-          "Input and output state tuple lengths do not match: %d vs. %d"
+          "Input and output state tuple lengths do not match: %d tf. %d"
           % (len(state), len(new_state)))
 
     final_output_and_state = _copy_some_through(new_output, new_state)
   else:
     empty_update = lambda: [zero_output] + list(state)
 
-    final_output_and_state = tf..cond(
+    final_output_and_state = tf.cond(
         # if t >= max_seq_len: copy all state through, output zeros
         time >= max_sequence_length, empty_update,
         # otherwise calculation is required: copy some or all of it through
@@ -338,22 +343,22 @@ def _reverse_seq(input_seq, lengths):
   if lengths is None:
     return list(reversed(input_seq))
 
-  input_shape = tf..matrix(None, None)
+  input_shape = tf.matrix(None, None)
   for input_ in input_seq:
     input_shape.merge_with(input_.get_shape())
     input_.set_shape(input_shape)
 
   # Join into (time, batch_size, depth)
-  s_joined = tf..pack(input_seq)
+  s_joined = tf.pack(input_seq)
 
   # TODO(schuster, ebrevdo): Remove cast when reverse_sequence takes int32
   if lengths is not None:
-    lengths = tf..to_int64(lengths)
+    lengths = tf.to_int64(lengths)
 
   # Reverse along dimension 0
-  s_reversed = tf..reverse_sequence(s_joined, lengths, 0, 1)
+  s_reversed = tf.reverse_sequence(s_joined, lengths, 0, 1)
   # Split again into list
-  result = tf..unpack(s_reversed)
+  result = tf.unpack(s_reversed)
   for r in result:
     r.set_shape(input_shape)
   return result
@@ -414,17 +419,17 @@ def bidirectional_rnn(cell_fw, cell_bw, inputs,
 
   name = scope or "BiRNN"
   # Forward direction
-  with vs.variable_scope(name + "_FW") as fw_scope:
+  with tf.variable_scope(name + "_FW") as fw_scope:
     output_fw, output_state_fw = rnn(cell_fw, inputs, initial_state_fw, dtype,
                        sequence_length, scope=fw_scope)
 
   # Backward direction
-  with vs.variable_scope(name + "_BW") as bw_scope:
+  with tf.variable_scope(name + "_BW") as bw_scope:
     tmp, output_state_bw = rnn(cell_bw, _reverse_seq(inputs, sequence_length),
                  initial_state_bw, dtype, sequence_length, scope=bw_scope)
   output_bw = _reverse_seq(tmp, sequence_length)
   # Concat each of the forward/backward outputs
-  outputs = [tf..concat(1, [fw, bw])
+  outputs = [tf.concat(1, [fw, bw])
              for fw, bw in zip(output_fw, output_bw)]
 
   return (outputs, output_state_fw, output_state_bw)
@@ -502,21 +507,21 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
   #   [batch, time, depth]
   # For internal calculations, we transpose to [time, batch, depth]
   if not time_major:
-    inputs = tf..transpose(inputs, [1, 0, 2])  # (B,T,D) => (T,B,D)
+    inputs = tf.transpose(inputs, [1, 0, 2])  # (B,T,D) => (T,B,D)
 
   parallel_iterations = parallel_iterations or 32
   if sequence_length is not None:
-    sequence_length = tf..to_int32(sequence_length)
-    sequence_length = tf..identity(  # Just to find it in the graph.
+    sequence_length = tf.to_int32(sequence_length)
+    sequence_length = tf.identity(  # Just to find it in the graph.
         sequence_length, name="sequence_length")
 
   # Create a new scope in which the caching device is either
   # determined by the parent scope, or is set to place the cached
   # Variable using the same placement as for the rest of the RNN.
-  with vs.variable_scope(scope or "RNN") as varscope:
+  with tf.variable_scope(scope or "RNN") as varscope:
     if varscope.caching_device is None:
       varscope.set_caching_device(lambda op: op.device)
-    input_shape = tf..shape(inputs)
+    input_shape = tf.shape(inputs)
     batch_size = input_shape[1]
 
     if initial_state is not None:
@@ -527,18 +532,18 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
       state = cell.zero_state(batch_size, dtype)
 
     def _assert_has_shape(x, shape):
-      x_shape = tf..shape(x)
-      packed_shape = tf..pack(shape)
-      return tf..Assert(
-          tf..reduce_all(tf..equal(x_shape, packed_shape)),
+      x_shape = tf.shape(x)
+      packed_shape = tf.pack(shape)
+      return tf.Assert(
+          tf.reduce_all(tf.equal(x_shape, packed_shape)),
           ["Expected shape for Tensor %s is " % x.name,
            packed_shape, " but saw shape: ", x_shape])
 
     if sequence_length is not None:
       # Perform some shape validation
-      with tf..control_dependencies(
+      with tf.control_dependencies(
           [_assert_has_shape(sequence_length, [batch_size])]):
-        sequence_length = tf..identity(
+        sequence_length = tf.identity(
             sequence_length, name="CheckSeqLen")
 
     (outputs, final_state) = _dynamic_rnn_loop(
@@ -549,7 +554,7 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
     # If we are performing batch-major calculations, transpose output back
     # to shape [batch, time, depth]
     if not time_major:
-      outputs = tf..transpose(outputs, [1, 0, 2])  # (T,B,D) => (B,T,D)
+      outputs = tf.transpose(outputs, [1, 0, 2])  # (T,B,D) => (B,T,D)
 
     return (outputs, final_state)
 
@@ -585,8 +590,8 @@ def _dynamic_rnn_loop(
   assert isinstance(parallel_iterations, int), "parallel_iterations must be int"
 
   # Construct an initial output
-  input_shape = tf..shape(inputs)
-  (time_steps, batch_size, _) = tf..unpack(input_shape, 3)
+  input_shape = tf.shape(inputs)
+  (time_steps, batch_size, _) = tf.unpack(input_shape, 3)
 
   inputs_got_shape = inputs.get_shape().with_rank(3)
   (const_time_steps, const_batch_size, const_depth) = inputs_got_shape.as_list()
@@ -597,27 +602,27 @@ def _dynamic_rnn_loop(
         "but saw value None.")
 
   # Prepare dynamic conditional copying of state & output
-  zero_output = tf..zeros(
-      tf..pack([batch_size, cell.output_size]), inputs.dtype)
+  zero_output = tf.zeros(
+      tf.pack([batch_size, cell.output_size]), inputs.dtype)
   if sequence_length is not None:
-    min_sequence_length = tf..reduce_min(sequence_length)
-    max_sequence_length = tf..reduce_max(sequence_length)
+    min_sequence_length = tf.reduce_min(sequence_length)
+    max_sequence_length = tf.reduce_max(sequence_length)
 
-  time = tf..constant(0, dtype=tf..int32, name="time")
+  time = tf.constant(0, dtype=tf.int32, name="time")
 
   state_size = cell.state_size
   state_is_tuple = _is_sequence(state_size)
 
   state = _unpacked_state(state) if state_is_tuple else (state,)
 
-  with tf..op_scope([], "dynamic_rnn") as scope:
+  with tf.op_scope([], "dynamic_rnn") as scope:
     base_name = scope
 
-  output_ta = tensor_tf..TensorArray(
+  output_ta = tf.TensorArray(
       dtype=inputs.dtype, size=time_steps,
       tensor_array_name=base_name + "output")
 
-  input_ta = tensor_tf..TensorArray(
+  input_ta = tf.TensorArray(
       dtype=inputs.dtype, size=time_steps,
       tensor_array_name=base_name + "input")
 
@@ -667,7 +672,7 @@ def _dynamic_rnn_loop(
 
     return (time + 1, output_ta_t) + new_state
 
-  final_loop_vars = tf..while_loop(
+  final_loop_vars = tf.while_loop(
       cond=lambda time, *_: time < time_steps,
       body=_time_step,
       loop_vars=(time, output_ta) + tuple(state),

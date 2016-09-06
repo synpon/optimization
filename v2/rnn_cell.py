@@ -846,7 +846,7 @@ class _SlimRNNCell(RNNCell):
     return output, state
 
 
-def _linear(args, rand, output_size, bias, bias_start=0.0, scope=None):
+def _linear(args, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -881,6 +881,8 @@ def _linear(args, rand, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
+    rand = tf.random_uniform("rand", [total_arg_size, output_size]) ### initialize each time this function is called
+    init_rand = tf.initialize_variables([rand]) ### Should be set as a constant 0.5 during evaluation
     W_p = tf.get_variable("W_p", [total_arg_size, output_size], dtype=tf.float32)
     W_m = tf.get_variable("W_m", [total_arg_size, output_size], dtype=tf.float32)
     # Element-wise multiplication
