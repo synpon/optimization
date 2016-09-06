@@ -24,7 +24,7 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-net = CNN(opt_net)
+net = MLP(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
@@ -43,8 +43,8 @@ opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # SGD
-sess.run(net.init) # Reset parameters of net to be trained
 for i in range(1):
+	sess.run(net.init) # Reset parameters of net to be trained
 	for j in range(net.batches):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
 		summary,_ = sess.run([merged, net.sgd_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
@@ -65,10 +65,22 @@ adam_writer.close()
 
 for i in range(10):
 	sess.run(net.init) # Reset parameters of net to be trained
-	rnn_state = np.zeros([m,rnn_size])
+
+	rnn_state_out = np.zeros([7850, net.opt_net.cell.state_size])
+
 	for j in range(net.batches):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
-		summary,_ = sess.run([merged, net.opt_net_train_step, opt_net.rnn_state], feed_dict={net.x: batch_x, net.y_: batch_y, opt_net.initial_rnn_state:rnn_state}) ###
+		
+		# Compute gradients
+		grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+		
+		# Compute update
+		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([7850])}
+		[mean, rnn_state_out] = sess.run([net.opt_net.mean, net.opt_net.rnn_state], feed_dict=feed_dict)
+		
+		# Update MLP parameters
+		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:mean})
+		
 		opt_net_writer.add_summary(summary,j)
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 	print "Opt net accuracy: %f" % accuracy

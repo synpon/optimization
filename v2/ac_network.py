@@ -76,10 +76,11 @@ class A3CRNN(A3CNet):
 	def __init__(self, num_trainable_vars):		
 		### Add regularization of the parameters to control bias etc.?
 		# Input
-		self.grads = tf.placeholder(tf.float32, [None,m,1])
-		self.update = tf.placeholder(tf.float32, [None,m,1], 'update') # Coordinate update
+		self.grads = tf.placeholder(tf.float32, [None,None,1])
+		self.update = tf.placeholder(tf.float32, [None,None,1], 'update') # Coordinate update
 		#self.rand = tf.placeholder_with_default(input=tf.zeros([m,1],tf.float32), shape=[m,1])
 		#self.rand = tf.placeholder(tf.float32, [None,m,1])
+		n_dims = tf.shape(self.grads)[1]
 		
 		grads = scale_grads(self.grads) ### Add inverse scaling
 
@@ -97,9 +98,9 @@ class A3CRNN(A3CNet):
 			
 			# placeholder for RNN unrolling time step size.
 			self.step_size = tf.placeholder(tf.int32, [1])
-			self.step_size = tf.tile(self.step_size, [m]) # m acts as the batch size
+			self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
-			self.initial_rnn_state = tf.placeholder(tf.float32, [m,self.cell.state_size])
+			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size])
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
@@ -114,7 +115,7 @@ class A3CRNN(A3CNet):
 									time_major = False)#,
 									#scope = scope)			
 			
-			self.output = tf.reshape(output,tf.pack([self.step_size[0],m,self.cell.state_size]))		
+			self.output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,self.cell.state_size]))		
 			self.rnn_state = rnn_state # [m, cell.state_size]
 		
 			# policy
@@ -135,12 +136,12 @@ class A3CRNN(A3CNet):
 		
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]		
 		self.reset_rnn_state()
-			
-			
+
+	
 	def run_policy(self, sess, grads):
 		# Updates the RNN state
 		feed_dict = {self.grads:grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
-		[mean, variance, self.rnn_state_out] = sess.run([self.mean,self.variance, self.rnn_state], feed_dict=feed_dict)
+		[mean, variance, self.rnn_state_out] = sess.run([self.mean, self.variance, self.rnn_state], feed_dict=feed_dict)
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 	

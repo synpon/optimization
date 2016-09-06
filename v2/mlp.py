@@ -5,6 +5,7 @@ from constants import use_rnn, rnn_size, m
 
 class MLP:
 	def __init__(self, opt_net):
+		self.opt_net = opt_net
 		self.batch_size = 1 # 32
 		self.batches = 1000
 		num_params = 7850
@@ -44,21 +45,25 @@ class MLP:
 		#if not grad_clip_value is None:
 		#	grads = [tf.clip_by_value(g, -grad_clip_value, grad_clip_value) for g in grads]
 			
-		grads = tf.concat(0,grads)
-		trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
+		self.grads = tf.concat(0,grads)
+		self.trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 		
 		#if use_rnn:
 		#	grads = tf.reshape(grads,[num_params,1])
 		#	opt_net.rnn_state = tf.zeros([num_params,rnn_size])
 		#	output,_ = opt_net.cell(grads, opt_net.rnn_state)
 		#	output = tf.reshape(output,[num_params,rnn_size])
-		#	updates = tf.matmul(output, opt_net.W1) + opt_net.b1 ### Doesn't work due to the use of fc_layer - requires reuse to use here
+		#	update = tf.matmul(output, opt_net.W1) + opt_net.b1 ### Doesn't work due to the use of fc_layer - requires reuse to use here
 		#else:
-		#	updates = tf.matmul(grads, opt_net.W1) + opt_net.b1
+		#	update = tf.matmul(grads, opt_net.W1) + opt_net.b1
 		
-		# Apply updates to the parameters in the train net.
-		update = tf.reshape(opt_net.mean,shape=[m,1])
-		self.opt_net_train_step = opt_net.update_params(trainable_variables, update)
+		# Apply update to the parameters in the train net.
+
+		#update = tf.reshape(update,shape=[7850,1])
+		#update = tf.reshape(self.opt_net.mean,shape=[m,1]) ### should use run_policy instead?
+		self.update = tf.placeholder(tf.float32,[1,7850,1])
+		update = tf.reshape(self.update,[7850,1])
+		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, update)
 		
 		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
 		self.init = tf.initialize_variables(vars)
