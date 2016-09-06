@@ -199,10 +199,10 @@ class BasicRNNCell(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, rand, scope=None):
+  def __call__(self, inputs, state, scope=None):
     """Most basic RNN: output = new_state = activation(W * input + U * state + B)."""
     with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-      output = self._activation(_linear([inputs, state], rand, self._num_units, True))
+      output = self._activation(_linear([inputs, state], self._num_units, True))
     return output, output
 
 
@@ -881,12 +881,13 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
-    rand = tf.random_uniform("rand", [total_arg_size, output_size]) ### initialize each time this function is called
-    init_rand = tf.initialize_variables([rand]) ### Should be set as a constant 0.5 during evaluation
-    W_p = tf.get_variable("W_p", [total_arg_size, output_size], dtype=tf.float32)
-    W_m = tf.get_variable("W_m", [total_arg_size, output_size], dtype=tf.float32)
+    #rand = tf.random_uniform("rand", [total_arg_size, output_size]) ### initialize each time this function is called
+    #init_rand = tf.initialize_variables([rand]) ### Should be set as a constant 0.5 during evaluation
+    #W_p = tf.get_variable("W_p", [total_arg_size, output_size], dtype=tf.float32)
+    #W_m = tf.get_variable("W_m", [total_arg_size, output_size], dtype=tf.float32)
     # Element-wise multiplication
-    matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
+    #matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
+    matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
     else:
