@@ -8,6 +8,8 @@ import math
 import six
 import tensorflow as tf
 
+from nn_utils import weight_matrix, bias_vector
+
 def _is_sequence(seq):
   return (isinstance(seq, collections.Sequence)
           and not isinstance(seq, six.string_types))
@@ -202,7 +204,7 @@ class BasicRNNCell(RNNCell):
   def __call__(self, inputs, state, scope=None):
     """Most basic RNN: output = new_state = activation(W * input + U * state + B)."""
     with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-      output = self._activation(_linear([inputs, state], self._num_units, True))
+      output = self._activation(_linear([inputs, state], self._num_units, bias=True))
     return output, output
 
 
@@ -230,7 +232,7 @@ class GRUCell(RNNCell):
         # We start with bias of 1.0 to not reset and not update.
         r, u = tf.split(1, 2, _linear([inputs, state],
                                              2 * self._num_units, True, 1.0))
-        r, u = sigmoid(r), sigmoid(u)
+        r, u = tf.sigmoid(r), tf.sigmoid(u)
       with tf.variable_scope("Candidate"):
         c = self._activation(_linear([inputs, r * state],
                                      self._num_units, True))
@@ -311,9 +313,9 @@ class BasicLSTMCell(RNNCell):
       # i = input_gate, j = new_input, f = forget_gate, o = output_gate
       i, j, f, o = tf.split(1, 4, concat)
 
-      new_c = (c * sigmoid(f + self._forget_bias) + sigmoid(i) *
+      new_c = (c * tf.sigmoid(f + self._forget_bias) + tf.sigmoid(i) *
                self._activation(j))
-      new_h = self._activation(new_c) * sigmoid(o)
+      new_h = self._activation(new_c) * tf.sigmoid(o)
 
       if self._state_is_tuple:
         new_state = LSTMStateTuple(new_c, new_h)
@@ -508,10 +510,10 @@ class LSTMCell(RNNCell):
             "W_O_diag", shape=[self._num_units], dtype=dtype)
 
       if self._use_peepholes:
-        c = (sigmoid(f + self._forget_bias + w_f_diag * c_prev) * c_prev +
-             sigmoid(i + w_i_diag * c_prev) * self._activation(j))
+        c = (tf.sigmoid(f + self._forget_bias + w_f_diag * c_prev) * c_prev +
+             tf.sigmoid(i + w_i_diag * c_prev) * self._activation(j))
       else:
-        c = (sigmoid(f + self._forget_bias) * c_prev + sigmoid(i) *
+        c = (tf.sigmoid(f + self._forget_bias) * c_prev + tf.sigmoid(i) *
              self._activation(j))
 
       if self._cell_clip is not None:
@@ -520,9 +522,9 @@ class LSTMCell(RNNCell):
         # pylint: enable=invalid-unary-operand-type
 
       if self._use_peepholes:
-        m = sigmoid(o + w_o_diag * c) * self._activation(c)
+        m = tf.sigmoid(o + w_o_diag * c) * self._activation(c)
       else:
-        m = sigmoid(o) * self._activation(c)
+        m = tf.sigmoid(o) * self._activation(c)
 
       if self._num_proj is not None:
         concat_w_proj = _get_concat_variable(
@@ -881,13 +883,14 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
-    #rand = tf.random_uniform("rand", [total_arg_size, output_size]) ### initialize each time this function is called
-    #init_rand = tf.initialize_variables([rand]) ### Should be set as a constant 0.5 during evaluation
-    #W_p = tf.get_variable("W_p", [total_arg_size, output_size], dtype=tf.float32)
-    #W_m = tf.get_variable("W_m", [total_arg_size, output_size], dtype=tf.float32)
+    rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0) ### Should be set to 0 during evaluation
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size])
+    #W_p = weight_matrix(total_arg_size, output_size)
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size])
+    #W_m = weight_matrix(total_arg_size, output_size)
     # Element-wise multiplication
-    #matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
-    matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
+    matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
+    #matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
     else:

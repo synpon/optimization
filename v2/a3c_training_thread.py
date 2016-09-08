@@ -64,7 +64,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []#[1.0] ### 1.0 is the value of the first state - causes the weights to increase in FF - why?
+		values = [1.0] ### 1.0 is the value of the first state - causes the weights to increase in FF - why?
 		
 		terminal_end = False
 			
@@ -83,7 +83,7 @@ class A3CTrainingthread(object):
 			start_rnn_state = self.local_network.rnn_state_out
 
 		value_ = 1.0
-		self.episode_reward = 0
+		episode_reward = 0
 		
 		for i in range(local_t_max):
 			mean,variance = self.local_network.run_policy(sess, state.grads)
@@ -101,7 +101,7 @@ class A3CTrainingthread(object):
 			# State is the point, action is the update
 			reward, next_state = self.snf.act(state, action, self.state_ops, sess)
 			
-			self.episode_reward += reward
+			episode_reward += reward
 			rewards.append(reward)
 
 			self.local_t += 1
@@ -110,18 +110,18 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
-				#states.append(state)
-				#terminal_end = True
-				#state = State(self.snf,self.state_ops,sess)
+				states.append(state)
+				terminal_end = True
+				state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state()
 				break
 
 		R = 0.0
-		#if not terminal_end:
+		if not terminal_end:
 			# Remove the last value
-		#	values = values[:-1] 
-		#	R = values[-1]
+			values = values[:-1] 
+			R = values[-1]
 
 		# Order from the final time point to the first
 		actions.reverse()
@@ -159,7 +159,6 @@ class A3CTrainingthread(object):
 								feed_dict = {
 									self.local_network.grads: batch_grads,
 									self.local_network.update: batch_a,
-									###self.local_network.rand: random.uniform(-1,1),
 									self.local_network.a: batch_a,
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R,
@@ -173,7 +172,6 @@ class A3CTrainingthread(object):
 								feed_dict = {
 									self.local_network.grads: batch_grads,
 									self.local_network.update: batch_a,
-									###self.local_network.rand: random.uniform(-1,1),
 									self.local_network.a: batch_a,
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R})		
@@ -183,5 +181,5 @@ class A3CTrainingthread(object):
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 
 		diff_local_t = self.local_t - start_local_t
-		return diff_local_t, self.episode_reward#, mean_loss
+		return diff_local_t, episode_reward#, mean_loss
 		
