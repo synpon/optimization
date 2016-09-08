@@ -6,9 +6,9 @@ from constants import use_rnn, rnn_size, m
 class MLP:
 	def __init__(self, opt_net):
 		self.opt_net = opt_net
-		self.batch_size = 1 # 32
+		self.batch_size = 1 ### 32
 		self.batches = 1000
-		num_params = 7850
+		self.num_params = 7850
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -51,8 +51,8 @@ class MLP:
 		#else:
 		#	update = tf.matmul(grads, opt_net.W1) + opt_net.b1
 
-		self.update = tf.placeholder(tf.float32,[1,7850,1])
-		update = tf.reshape(self.update,[7850,1])
+		self.update = tf.placeholder(tf.float32,[1,self.num_params,1])
+		update = tf.reshape(self.update,[self.num_params,1])
 		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, update)
 		
 		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]

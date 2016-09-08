@@ -24,7 +24,7 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-net = MLP(opt_net)
+net = MLP_RELU(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
@@ -66,7 +66,7 @@ adam_writer.close()
 for i in range(10):
 	sess.run(net.init) # Reset parameters of net to be trained
 
-	rnn_state_out = np.zeros([7850, net.opt_net.cell.state_size])
+	rnn_state_out = np.zeros([net.num_params, net.opt_net.cell.state_size])
 
 	for j in range(net.batches):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
@@ -75,7 +75,7 @@ for i in range(10):
 		grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
 		
 		# Compute update
-		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([7850])}
+		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([net.num_params])}
 		[mean, rnn_state_out] = sess.run([net.opt_net.mean, net.opt_net.rnn_state], feed_dict=feed_dict)
 		
 		# Update MLP parameters

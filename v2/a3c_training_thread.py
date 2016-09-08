@@ -64,7 +64,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = [1.0] ### 1.0 is the value of the first state - causes the weights to increase in FF - why?
+		values = [1.0]
 		
 		terminal_end = False
 			
