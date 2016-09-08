@@ -33,6 +33,7 @@ rnn_size = 1
 num_rnn_layers = 1 # unused
 
 #===# SNF constants #===#
+k = 30 # Number of hyperplanes
 m = 10 # Number of dimensions
 var_size = 0.2
 
