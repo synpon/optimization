@@ -48,12 +48,13 @@ def optimize(point, snf, optimizer):
 		grad_sizes = []
 		
 		feed_dict = {state_ops.point: point, 
-					state_ops.means: snf.means, 
+					state_ops.hyperplanes: snf.hyperplanes, 
 					state_ops.variances: snf.variances,
 					state_ops.weights: snf.weights}
 		grads = sess.run([state_ops.grads],feed_dict=feed_dict)
 		
 		grads = grads[0]
+		grads = np.reshape(grads,(m,1))
 		
 		if grad_noise > 0:
 			grads += np.abs(grads)*grad_noise*np.random.random((m,1))
@@ -74,7 +75,7 @@ def optimize(point, snf, optimizer):
 			V += (1 - adam.beta2) * (grads * grads - V)
 			point -= lr_t * M / (np.sqrt(V) + adam.epsilon)			
 		
-		loss = snf.calc_loss(point)
+		loss = snf.calc_loss(point, state_ops, sess)
 		losses.append(loss)
 		
 		if i == 1:
@@ -92,7 +93,7 @@ def optimize(point, snf, optimizer):
 			
 def main():
 	snf = SNF()
-	proportion_zeros(snf)
+	#proportion_zeros(snf)
 	
 	point = np.random.rand(m,1)
 
