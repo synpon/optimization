@@ -31,6 +31,8 @@ if args.save_model:
 else:
 	print "Model will not be saved"
 	
+print "Reward\t\t Loss\t\t Global time step"
+	
 # Globals
 stop_requested = False	
 global_t = 0
@@ -51,6 +53,7 @@ def train_function(parallel_index):
 	global graph
 	train_thread_class = train_thread_classes[parallel_index]
 	discounted_rewards = []
+	losses = []
 	count = 0 # Unlike global_t, count is thread-specific
 
 	while True:
@@ -62,17 +65,18 @@ def train_function(parallel_index):
 			print "thread %d reached max steps" % parallel_index
 			return #break
 		
-		diff_global_t, r = train_thread_class.thread(sess, global_t)
+		diff_global_t, r, loss = train_thread_class.thread(sess, global_t)
 		discounted_rewards.append(r)
+		losses.append(loss)
 		global_t += diff_global_t
 		
 		### Should be done on the global network so there's only one print?
 		if count % summary_freq == 0:
-			print "Reward: ", float(np.mean(discounted_rewards)), ", ", global_t, ","
-			### print "Loss: ", 
+			print "%.4f\t\t %.3g\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
 			if not use_rnn: 
 				print "W: ", sess.run(global_network.W1)[0][0]
 			discounted_rewards = []
+			losses = []
 			
 			
 with graph.as_default(), tf.Session() as sess:

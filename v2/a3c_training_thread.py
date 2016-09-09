@@ -84,6 +84,7 @@ class A3CTrainingthread(object):
 
 		value_ = 1.0
 		episode_reward = 0
+		episode_losses = []
 		
 		for i in range(local_t_max):
 			mean,variance = self.local_network.run_policy(sess, state.grads)
@@ -155,7 +156,7 @@ class A3CTrainingthread(object):
 			batch_grads = np.concatenate(batch_grads, axis=0)
 			batch_a = np.concatenate(batch_a, axis=0)
 				
-			sess.run(self.accum_gradients,
+			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
 								feed_dict = {
 									self.local_network.grads: batch_grads,
 									self.local_network.update: batch_a,
@@ -168,18 +169,20 @@ class A3CTrainingthread(object):
 			batch_grads = np.concatenate(batch_grads, axis=0)
 			batch_a = np.concatenate(batch_a, axis=0)
 			
-			sess.run(self.accum_gradients,
+			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
 								feed_dict = {
 									self.local_network.grads: batch_grads,
 									self.local_network.update: batch_a,
 									self.local_network.a: batch_a,
 									self.local_network.td: batch_td,
-									self.local_network.r: batch_R})		
+									self.local_network.r: batch_R})
+
+		episode_losses.append(loss)
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 
 		diff_local_t = self.local_t - start_local_t
-		return diff_local_t, episode_reward#, mean_loss
+		return diff_local_t, episode_reward, np.mean(episode_losses)
 		
