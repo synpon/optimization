@@ -46,7 +46,7 @@ class SNF(object):
 	def choose_action(self,mean,variance):
 		for i,v in enumerate(variance):
 			mean[i] += np.random.normal(0,v)*mean[i]
-		mean = inv_scale_grads(mean)
+		#mean = inv_scale_grads(mean)
 		mean = np.reshape(mean,[1,m,1])
 		return mean
 	

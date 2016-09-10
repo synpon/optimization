@@ -33,7 +33,8 @@ def fc_layer(layer_in, num_in, num_out, activation_fn):
 		
 	return out
 		
-		
+
+# Doubles the number of features
 def scale_grads(input):
 	if grad_scaling_method == 'scalar':
 		return input*tf.constant(grad_scaling_factor)	
@@ -59,6 +60,7 @@ def scale_grads(input):
 	return input
 	
 	
+# Halves the number of features
 def inv_scale_grads(input): ### Doesn't work
 	if grad_scaling_method == 'scalar':
 		return input/tf.constant(grad_scaling_factor)	
@@ -77,3 +79,6 @@ def inv_scale_grads(input): ### Doesn't work
 		
 		return x_cond1*mask + x_cond2*inv_mask		
 	return input
+	
+def scale_num(x):
+	return tf.sign(x)*tf.log(tf.abs(x))

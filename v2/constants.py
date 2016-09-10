@@ -38,7 +38,7 @@ m = 100 # Number of dimensions
 var_size = 0.2
 
 grad_scaling_methods = ['none','scalar','full']
-grad_scaling_method = grad_scaling_methods[0]
+grad_scaling_method = grad_scaling_methods[2]
 grad_scaling_factor = 0.1
 p = 10.0
 
