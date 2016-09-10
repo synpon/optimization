@@ -28,7 +28,9 @@ class A3CNet(object):
 
 		# Policy loss (output)
 		# Minus because this is for gradient ascent
-		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
+		a1 = scale_grads(self.mean)
+		a2 = scale_grads(self.a)
+		policy_loss = tf.nn.l2_loss(a1 - a2)*self.td - entropy*entropy_beta
 
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [None], 'r')
@@ -36,6 +38,8 @@ class A3CNet(object):
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
+		### Relative scale of policy and value loss? Geometric instead of arithmetic mean?
+		#self.total_loss = tf.sqrt(policy_loss*value_loss)
 		self.total_loss = policy_loss + value_loss
 		
 
