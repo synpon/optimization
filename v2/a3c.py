@@ -70,7 +70,7 @@ def train_function(parallel_index):
 		losses.append(loss)
 		global_t += diff_global_t
 		
-		### Should be done on the global network so there's only one print?
+		# Printing for each thread allows synchronization and divergence to be detected
 		if count % summary_freq == 0:
 			if use_rnn:
 				print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)

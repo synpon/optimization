@@ -82,3 +82,11 @@ def inv_scale_grads(input): ### Doesn't work
 	
 def scale_num(x):
 	return tf.sign(x)*tf.log(tf.abs(x))
+	
+def inv_scale_num(x):
+	return tf.sign(x)*tf.exp(tf.abs(x))
+	
+def np_inv_scale_num(x):
+	return np.sign(x)*np.exp(np.abs(x))
+	
+	

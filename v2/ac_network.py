@@ -27,20 +27,16 @@ class A3CNet(object):
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Policy loss (output)
-		# Minus because this is for gradient ascent
-		#policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
-		policy_loss = tf.log(tf.nn.l2_loss(self.mean - self.a)) + self.td - entropy*entropy_beta
+		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
 
 		# R (input for value)
 		self.r = tf.placeholder(tf.float32, [None], 'r')
 
 		# Learning rate for critic is half of actor's, so multiply by 0.5
-		#value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
-		value_loss = 0.5 + tf.log(tf.nn.l2_loss(self.r - self.v))
+		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
 		### Relative scale of policy and value loss? Geometric instead of arithmetic mean?
 		self.total_loss = policy_loss + value_loss
-		#self.total_loss = scale_num(policy_loss) + scale_num(value_loss)
 		
 
 	def sync_from(self, src_network, name=None):
@@ -85,7 +81,6 @@ class A3CRNN(A3CNet):
 		self.update = tf.placeholder(tf.float32, [None,None,1], 'update') # Coordinate update
 		n_dims = tf.shape(self.grads)[1]
 		
-		#grads = scale_grads(self.grads) ### Add inverse scaling
 		grads = self.grads
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
@@ -129,7 +124,7 @@ class A3CRNN(A3CNet):
 			self.variance = tf.maximum(0.01,h)
 			
 			# value - linear output layer
-			grads_and_update = tf.concat(2, [self.grads, self.update])
+			grads_and_update = tf.concat(2, [self.grads, self.update]) ### Needs more layers?
 			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
 			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
 		
@@ -175,8 +170,6 @@ class A3CFF(A3CNet):
 		self.grads = tf.placeholder(tf.float32, [None,m,1], 'grads')
 		self.update = tf.placeholder(tf.float32, [None,m,1], 'update') # Coordinate update
 		self.rand = tf.placeholder_with_default(input=0.0, shape=[])
-		
-		#grads = scale_grads(self.grads) ### Add inverse scaling
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):

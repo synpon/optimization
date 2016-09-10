@@ -12,7 +12,7 @@ summary_freq = 100
 #===# A3C constants #===#
 num_threads = 8
 local_t_max = 5 # repeat step size
-entropy_beta = 0#1e-4 # entropy regularization constant 0.0001
+entropy_beta = 0.0#0.001 # entropy regularization constant 0.0001
 max_time_steps = 1e6
 discount_rate = 0.99
 
@@ -34,11 +34,11 @@ num_rnn_layers = 1 # unused
 
 #===# SNF constants #===#
 k = 30 # Number of hyperplanes
-m = 100 # Number of dimensions
+m = 10 # Number of dimensions
 var_size = 0.2
 
 grad_scaling_methods = ['none','scalar','full']
-grad_scaling_method = grad_scaling_methods[2]
+grad_scaling_method = grad_scaling_methods[0]
 grad_scaling_factor = 0.1
 p = 10.0
 

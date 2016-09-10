@@ -64,7 +64,7 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = [1.0]
+		values = []#1.0]
 		
 		terminal_end = False
 			
@@ -82,7 +82,7 @@ class A3CTrainingthread(object):
 		if use_rnn:
 			start_rnn_state = self.local_network.rnn_state_out
 
-		value_ = 1.0
+		value = 1.0
 		episode_reward = 0
 		episode_losses = []
 		
@@ -96,8 +96,8 @@ class A3CTrainingthread(object):
 			# Calculate the value of next_state
 			v = self.local_network.run_value(sess, state.grads, action)
 
-			value_ *= v
-			values.append(value_)
+			value *= v
+			values.append(value)
 
 			# State is the point, action is the update
 			reward, next_state = self.snf.act(state, action, self.state_ops, sess)
@@ -111,8 +111,8 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
+				terminal_end = True			
 				states.append(state)
-				terminal_end = True
 				state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state()
@@ -120,8 +120,6 @@ class A3CTrainingthread(object):
 
 		R = 0.0
 		if not terminal_end:
-			# Remove the last value
-			values = values[:-1] 
 			R = values[-1]
 
 		# Order from the final time point to the first
