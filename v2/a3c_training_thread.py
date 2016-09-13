@@ -64,7 +64,8 @@ class A3CTrainingthread(object):
 		states = []
 		actions = []
 		rewards = []
-		values = []#1.0]
+		values = []
+		snf_losses = []
 		
 		terminal_end = False
 			
@@ -78,25 +79,21 @@ class A3CTrainingthread(object):
 		
 		self.snf = SNF() # Generate a new landscape
 		state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
+		snf_losses.append(self.snf.calc_loss(state.point, self.state_ops, sess))
 		
 		if use_rnn:
 			start_rnn_state = self.local_network.rnn_state_out
 
-		value = 1.0
 		episode_reward = 0
 		episode_losses = []
 		
 		for i in range(local_t_max):
-			mean,variance = self.local_network.run_policy(sess, state.grads)
-
+			mean,variance,value = self.local_network.run_policy_and_value(sess, state, self.snf, self.state_ops)
+			
 			action = self.snf.choose_action(mean,variance) # Calculate update
+			
 			states.append(state)
 			actions.append(action)
-
-			# Calculate the value of next_state
-			v = self.local_network.run_value(sess, state.grads, action)
-
-			value *= v
 			values.append(value)
 
 			# State is the point, action is the update
@@ -104,6 +101,7 @@ class A3CTrainingthread(object):
 			
 			episode_reward += reward
 			rewards.append(reward)
+			snf_losses.append(-reward)
 
 			self.local_t += 1
 			state = next_state
@@ -111,30 +109,35 @@ class A3CTrainingthread(object):
 			terminal = random.random() < termination_prob
 				
 			if terminal: 
-				terminal_end = True			
-				states.append(state)
+				terminal_end = True
 				state = State(self.snf,self.state_ops,sess)
 				if use_rnn:
 					self.local_network.reset_rnn_state()
 				break
 
+		snf_losses = snf_losses[:-1] # Remove last entry
+				
 		R = 0.0
 		if not terminal_end:
-			R = values[-1]
+			R = self.local_network.run_value(sess, state, self.snf, self.state_ops)
 
 		# Order from the final time point to the first
 		actions.reverse()
 		states.reverse()
 		rewards.reverse()
 		values.reverse()
+		snf_losses.reverse()
 		
 		batch_a = []
 		batch_grads = []
 		batch_td = []
 		batch_R = []
+		batch_snf_loss = []
+		
+		assert len(actions) == len(rewards) == len(states) == len(values) == len(snf_losses)
 		
 		# compute and accumulate gradients
-		for (a, r, state, V) in zip(actions, rewards, states, values):
+		for (a, r, state, V, snf_loss) in zip(actions, rewards, states, values, snf_losses):
 			R = r + discount_rate * R
 			td = R - V # temporal difference
 			
@@ -142,6 +145,7 @@ class A3CTrainingthread(object):
 			batch_grads.append(state.grads)
 			batch_td.append(td)
 			batch_R.append(R)
+			batch_snf_loss.append(snf_loss)
 		
 		# grads is the state, here		
 		if use_rnn:
@@ -149,6 +153,7 @@ class A3CTrainingthread(object):
 			batch_grads.reverse()
 			batch_td.reverse()
 			batch_R.reverse()
+			batch_snf_loss.reverse()
 			
 			step_size = len(batch_a)
 			batch_grads = np.concatenate(batch_grads, axis=0)
@@ -157,10 +162,10 @@ class A3CTrainingthread(object):
 			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
 								feed_dict = {
 									self.local_network.grads: batch_grads,
-									self.local_network.update: batch_a,
 									self.local_network.a: batch_a,
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R,
+									self.local_network.snf_loss: batch_snf_loss,
 									self.local_network.initial_rnn_state: start_rnn_state,
 									self.local_network.step_size: step_size*np.ones([m])})
 		else:
@@ -170,7 +175,6 @@ class A3CTrainingthread(object):
 			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
 								feed_dict = {
 									self.local_network.grads: batch_grads,
-									self.local_network.update: batch_a,
 									self.local_network.a: batch_a,
 									self.local_network.td: batch_td,
 									self.local_network.r: batch_R})

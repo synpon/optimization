@@ -5,7 +5,7 @@ import numpy as np
 
 import rnn
 import rnn_cell
-from nn_utils import weight_matrix, bias_vector, fc_layer, scale_grads, inv_scale_grads, scale_num
+from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, inv_scale_grads, scale_num
 from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
 
 
@@ -35,7 +35,6 @@ class A3CNet(object):
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
-		### Relative scale of policy and value loss? Geometric instead of arithmetic mean?
 		self.total_loss = policy_loss + value_loss
 		
 
@@ -72,13 +71,11 @@ class A3CNet(object):
 		
 
 class A3CRNN(A3CNet):
-	# For an RNN, input is usually of shape [batch_size,num_steps]
-	# Here they are both 1, as is the case for sampling in a generative RNN
-	def __init__(self, num_trainable_vars):		
-		### Add regularization of the parameters to control bias etc.?
+
+	def __init__(self, num_trainable_vars):
 		# Input
-		self.grads = tf.placeholder(tf.float32, [None,None,1])
-		self.update = tf.placeholder(tf.float32, [None,None,1], 'update') # Coordinate update
+		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
+		self.snf_loss = tf.placeholder(tf.float32, [None] , 'snf_loss')
 		n_dims = tf.shape(self.grads)[1]
 		
 		grads = self.grads
@@ -103,7 +100,7 @@ class A3CRNN(A3CNet):
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
-			# Unrolling LSTM up to LOCAL_T_MAX time steps. (= 5time steps.)
+			# Unrolling LSTM up to LOCAL_T_MAX time steps.
 			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, step_size is 1.
@@ -118,43 +115,63 @@ class A3CRNN(A3CNet):
 			self.rnn_state = rnn_state # [m, cell.state_size]
 		
 			# policy
-			self.mean = fc_layer(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=None)
+			self.mean = fc_layer3(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=None)
 
-			h = fc_layer(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
-			self.variance = tf.maximum(0.01,h)
+			h = fc_layer3(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
+			self.variance = tf.maximum(0.01,h) # protection against NaNs
 			
 			# value - linear output layer
-			grads_and_update = tf.concat(2, [self.grads, self.update]) ### Needs more layers?
-			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
-			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
-		
-		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
+			mean_output = tf.reduce_mean(self.output, reduction_indices=[1]) # [self.step_size[0], self.cell.state_size]
+			
+			### Needs more layers?
+			snf_loss = tf.expand_dims(self.snf_loss, 1)
+			mean_output_and_snf_loss = tf.concat(1, [mean_output, snf_loss])
+			v_h = fc_layer(mean_output_and_snf_loss, num_in=self.cell.state_size + 1, num_out=10, activation_fn=tf.nn.relu)
+			v_h = fc_layer(v_h, num_in=10, num_out=10, activation_fn=tf.nn.relu)
+			v = tf.contrib.layers.fully_connected(v_h, num_outputs=1, activation_fn=None)
+			
+		self.v = v
 		
 		if num_trainable_vars[0] == None:
 			num_trainable_vars[0] = len(tf.trainable_variables())
 		
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]		
 		self.reset_rnn_state()
+		
+		
+	# Updates the RNN state
+	def run_policy_and_value(self, sess, state, snf, state_ops):	
+		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if applicable
+		
+		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m]), self.snf_loss:snf_loss}
+		[mean, variance, self.rnn_state_out, value] = sess.run([self.mean, self.variance, self.rnn_state, self.v], feed_dict=feed_dict)
+		variance = np.maximum(variance,0.01)
+		
+		value = np.squeeze(value)
+		return mean, variance, value
 
-	
-	def run_policy(self, sess, grads):
-		# Updates the RNN state
-		feed_dict = {self.grads:grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
+		
+	# Updates the RNN state
+	def run_policy(self, sess, state):		
+		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
 		[mean, variance, self.rnn_state_out] = sess.run([self.mean, self.variance, self.rnn_state], feed_dict=feed_dict)
 		variance = np.maximum(variance,0.01)
 		return mean, variance
 	
 	
-	def run_value(self, sess, grads, update):
-		# Does not update the RNN state
+	# Does not update the RNN state
+	def run_value(self, sess, state, snf, state_ops):
+		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if applicable	
 		prev_rnn_state_out = self.rnn_state_out
-		feed_dict = {self.grads:grads, self.update:update, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
-		[v_out, self.rnn_state_out] = sess.run([self.v, self.rnn_state], feed_dict=feed_dict)		
+		
+		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m]), self.snf_loss:snf_loss}
+		[value, self.rnn_state_out] = sess.run([self.v, self.rnn_state], feed_dict=feed_dict)		
 
 	    # roll back RNN state
 		self.rnn_state_out = prev_rnn_state_out ### necessary?
 		
-		return np.abs(v_out) # output is a scalar
+		value = np.squeeze(value)		
+		return value # scalar
 		
 		
 	def reset_rnn_state(self):

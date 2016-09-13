@@ -18,7 +18,7 @@ def bias_vector(num_in, num_out):
 		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
 
 		
-def fc_layer(layer_in, num_in, num_out, activation_fn):
+def fc_layer3(layer_in, num_in, num_out, activation_fn):
 	# [batch_size x m x num_in] x [num_in x num_out] = [batch_size x m x num_out]
 	batch_size = tf.shape(layer_in)[0]
 	
@@ -28,6 +28,19 @@ def fc_layer(layer_in, num_in, num_out, activation_fn):
 	
 	b = bias_vector(num_in, num_out)
 	out = tf.batch_matmul(layer_in, W) + b
+	if activation_fn != None:
+		out = activation_fn(out)
+		
+	return out
+	
+	
+def fc_layer(layer_in, num_in, num_out, activation_fn):
+	batch_size = tf.shape(layer_in)[0]
+	
+	W = weight_matrix(num_in, num_out)
+	b = bias_vector(num_in, num_out)
+	out = tf.matmul(layer_in, W) + b
+	
 	if activation_fn != None:
 		out = activation_fn(out)
 		
