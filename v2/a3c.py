@@ -72,10 +72,10 @@ def train_function(parallel_index):
 		
 		# Printing for each thread allows synchronization and divergence to be detected
 		if count % summary_freq == 0:
-			if use_rnn:
-				print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
-			else:
-				print "%.4f\t\t %.3g\t %.3f\t %d" % (np.mean(discounted_rewards), np.mean(losses), sess.run(global_network.W1)[0][0], global_t)
+			#if use_rnn:
+			#	print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
+			#else:
+			#	print "%.4f\t\t %.3g\t %.3f\t %d" % (np.mean(discounted_rewards), np.mean(losses), sess.run(global_network.W1)[0][0], global_t)
 			discounted_rewards = []
 			losses = []
 			
@@ -103,7 +103,7 @@ with graph.as_default(), tf.Session() as sess:
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(i, global_network,
-											learning_rate_input, grad_applier, num_trainable_vars, snf)							
+											learning_rate_input, grad_applier, num_trainable_vars, snf, sess)							
 		train_thread_classes.append(train_thread_class)
 		train_threads.append(threading.Thread(target=train_function, args=(i,)))
 		

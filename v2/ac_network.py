@@ -126,6 +126,7 @@ class A3CRNN(A3CNet):
 			### Needs more layers?
 			snf_loss = tf.expand_dims(self.snf_loss, 1)
 			mean_output_and_snf_loss = tf.concat(1, [mean_output, snf_loss])
+			#mean_output_and_snf_loss = snf_loss ### works better?
 			v_h = fc_layer(mean_output_and_snf_loss, num_in=self.cell.state_size + 1, num_out=10, activation_fn=tf.nn.relu)
 			v_h = fc_layer(v_h, num_in=10, num_out=10, activation_fn=tf.nn.relu)
 			v = tf.contrib.layers.fully_connected(v_h, num_outputs=1, activation_fn=None)

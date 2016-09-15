@@ -18,7 +18,8 @@ class A3CTrainingthread(object):
 			 learning_rate_input,
 			 grad_applier,
 			 num_trainable_vars,
-			 snf):
+			 snf,
+			 sess):
 			 
 		# All ops to be executed in a thread must be defined here since tf.Graph is not thread-safe.
 		
@@ -26,7 +27,7 @@ class A3CTrainingthread(object):
 		self.learning_rate_input = learning_rate_input
 		self.snf = snf
 		self.state_ops = StateOps()
-		self.episode_reward = 0
+		self.episode_rewards = []
 		
 		if use_rnn:
 			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
@@ -51,6 +52,9 @@ class A3CTrainingthread(object):
 		
 		if not use_rnn:
 			self.W = global_network.W1
+			
+		self.snf = SNF() # Generate a new landscape ###
+		self.state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
 
 
 	def _anneal_learning_rate(self, global_time_step):
@@ -59,7 +63,7 @@ class A3CTrainingthread(object):
 		return lr
 
 
-	# Run for one episode
+	# Not one episode
 	def thread(self, sess, global_t):
 		states = []
 		actions = []
@@ -77,40 +81,44 @@ class A3CTrainingthread(object):
 		
 		start_local_t = self.local_t
 		
-		self.snf = SNF() # Generate a new landscape
-		state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
-		snf_losses.append(self.snf.calc_loss(state.point, self.state_ops, sess))
+		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess)) ###
 		
 		if use_rnn:
 			start_rnn_state = self.local_network.rnn_state_out
 
-		episode_reward = 0
 		episode_losses = []
 		
 		for i in range(local_t_max):
-			mean,variance,value = self.local_network.run_policy_and_value(sess, state, self.snf, self.state_ops)
+			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state, self.snf, self.state_ops)
 			
 			action = self.snf.choose_action(mean,variance) # Calculate update
 			
-			states.append(state)
+			states.append(self.state)
 			actions.append(action)
 			values.append(value)
 
 			# State is the point, action is the update
-			reward, next_state = self.snf.act(state, action, self.state_ops, sess)
+			reward, next_state = self.snf.act(self.state, action, self.state_ops, sess)
 			
-			episode_reward += reward
+			self.episode_rewards.append(reward)
 			rewards.append(reward)
 			snf_losses.append(-reward)
 
 			self.local_t += 1
-			state = next_state
+			self.state = next_state
 
 			terminal = random.random() < termination_prob
 				
-			if terminal: 
+			if terminal:
 				terminal_end = True
-				state = State(self.snf,self.state_ops,sess)
+				self.state = State(self.snf,self.state_ops,sess)
+				
+				if len(self.episode_rewards) >= 2:
+					print "Episode reward: %4f\t%4f\t%d" % (self.episode_rewards[-1] - self.episode_rewards[0], np.mean(self.episode_rewards), global_t)
+				else:
+					print "Episode reward cannot be computed"
+					
+				self.episode_rewards = []
 				if use_rnn:
 					self.local_network.reset_rnn_state()
 				break
@@ -119,7 +127,7 @@ class A3CTrainingthread(object):
 				
 		R = 0.0
 		if not terminal_end:
-			R = self.local_network.run_value(sess, state, self.snf, self.state_ops)
+			R = self.local_network.run_value(sess, self.state, self.snf, self.state_ops)
 
 		# Order from the final time point to the first
 		actions.reverse()
@@ -137,17 +145,16 @@ class A3CTrainingthread(object):
 		assert len(actions) == len(rewards) == len(states) == len(values) == len(snf_losses)
 		
 		# compute and accumulate gradients
-		for (a, r, state, V, snf_loss) in zip(actions, rewards, states, values, snf_losses):
+		for (a, r, s, V, snf_loss) in zip(actions, rewards, states, values, snf_losses):
 			R = r + discount_rate * R
 			td = R - V # temporal difference
 			
 			batch_a.append(a)
-			batch_grads.append(state.grads)
+			batch_grads.append(s.grads)
 			batch_td.append(td)
 			batch_R.append(R)
 			batch_snf_loss.append(snf_loss)
-		
-		# grads is the state, here		
+			
 		if use_rnn:
 			batch_a.reverse()
 			batch_grads.reverse()
@@ -185,6 +192,12 @@ class A3CTrainingthread(object):
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 
-		diff_local_t = self.local_t - start_local_t
+		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
+		
+		if len(self.episode_rewards) >= 2:
+			episode_reward = self.episode_rewards[-1] - self.episode_rewards[0] # Change in the SNF loss - should be negative
+		else:
+			episode_reward = 0
+			
 		return diff_local_t, episode_reward, np.mean(episode_losses)
 		
