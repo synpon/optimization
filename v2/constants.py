@@ -30,7 +30,7 @@ use_rnn = True # Uses a feed-forward network if false
 rnn_types = ['rnn','gru']
 rnn_type = rnn_types[1]
 rnn_size = 4
-num_rnn_layers = 1 # unused
+num_rnn_layers = 1
 
 #===# SNF constants #===#
 k = 10 # Number of hyperplanes

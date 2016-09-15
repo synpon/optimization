@@ -83,11 +83,13 @@ class A3CRNN(A3CNet):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			if rnn_type == 'rnn':
-				self.cell = rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
+				cell = rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
 			elif rnn_type == 'gru':
-				self.cell = rnn_cell.GRUCell(rnn_size)
+				cell = rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
-				self.cell = rnn_cell.BasicLSTMCell(rnn_size)
+				cell = rnn_cell.BasicLSTMCell(rnn_size)
+				
+			self.cell = rnn_cell.MultiRNNCell([cell] * num_rnn_layers)
 
 			if rnn_type == 'lstm':
 				raise NotImplementedError
@@ -111,13 +113,13 @@ class A3CRNN(A3CNet):
 									time_major = False)#,
 									#scope = scope)			
 			
-			self.output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,self.cell.state_size]))		
+			self.output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,rnn_size]))		
 			self.rnn_state = rnn_state # [m, cell.state_size]
 		
 			# policy
-			self.mean = fc_layer3(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=None)
+			self.mean = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=None)
 
-			h = fc_layer3(self.output, num_in=self.cell.state_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
+			h = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
 			self.variance = tf.maximum(0.01,h) # protection against NaNs
 			
 			# value - linear output layer
@@ -127,7 +129,7 @@ class A3CRNN(A3CNet):
 			snf_loss = tf.expand_dims(self.snf_loss, 1)
 			mean_output_and_snf_loss = tf.concat(1, [mean_output, snf_loss])
 			#mean_output_and_snf_loss = snf_loss ### works better?
-			v_h = fc_layer(mean_output_and_snf_loss, num_in=self.cell.state_size + 1, num_out=10, activation_fn=tf.nn.relu)
+			v_h = fc_layer(mean_output_and_snf_loss, num_in=rnn_size + 1, num_out=10, activation_fn=tf.nn.relu)
 			v_h = fc_layer(v_h, num_in=10, num_out=10, activation_fn=tf.nn.relu)
 			v = tf.contrib.layers.fully_connected(v_h, num_outputs=1, activation_fn=None)
 			
