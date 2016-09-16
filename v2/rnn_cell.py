@@ -884,10 +884,8 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
     rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0)
-    #W_p = tf.get_variable("W_p", [total_arg_size, output_size])
-    W_p = weight_matrix(total_arg_size, output_size)
-    #W_m = tf.get_variable("W_m", [total_arg_size, output_size])
-    W_m = weight_matrix(total_arg_size, output_size)
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size])
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size])
     # Element-wise multiplication
     matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
     #matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
