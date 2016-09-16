@@ -24,7 +24,7 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-net = MLP(opt_net)
+net = MLP_RELU(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."

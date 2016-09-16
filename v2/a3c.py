@@ -31,7 +31,7 @@ if args.save_model:
 else:
 	print "Model will not be saved"
 	
-print "Reward\t\t Loss\t\t Global time step"
+print "Reward\t\t Loss\t\t Global time step" ###
 	
 # Globals
 stop_requested = False	

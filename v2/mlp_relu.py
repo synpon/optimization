@@ -9,7 +9,7 @@ class MLP_RELU:
 	def __init__(self, opt_net):
 		self.opt_net = opt_net
 		self.batch_size = 1 ### 32
-		self.batches = 10000 ### Adjust
+		self.batches = 1000 ### Adjust
 		self.num_params = 466442#tf.reduce_prod(tf.shape(grads)) ### calculate num_params automatically
 
 		# Define architecture

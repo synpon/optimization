@@ -8,13 +8,13 @@ from constants import grad_scaling_method, grad_scaling_factor, p
 
 def weight_matrix(num_in, num_out):
 	with tf.variable_scope("weight"):
-		d = 1.0/np.sqrt(num_in)
+		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		
 def bias_vector(num_in, num_out):
 	with tf.variable_scope("bias"):
-		d = 1.0/np.sqrt(num_in)
+		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
 
 		

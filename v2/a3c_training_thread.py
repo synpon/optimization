@@ -30,8 +30,8 @@ class A3CTrainingthread(object):
 		self.episode_rewards = []
 		
 		if use_rnn:
-			initializer = tf.random_uniform_initializer(-0.1, 0.1)		
-			with tf.variable_scope("model"+str(thread_index), reuse=None, initializer=initializer):
+			#initializer = tf.random_uniform_initializer(-0.1, 0.1)		
+			with tf.variable_scope("model"+str(thread_index), reuse=None):#, initializer=initializer):
 				self.local_network = A3CRNN(num_trainable_vars)
 		else:
 			self.local_network = A3CFF(num_trainable_vars)
@@ -53,7 +53,7 @@ class A3CTrainingthread(object):
 		if not use_rnn:
 			self.W = global_network.W1
 			
-		self.snf = SNF() # Generate a new landscape ###
+		self.snf = SNF() # Generate a new landscape
 		self.state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
 
 
@@ -81,7 +81,7 @@ class A3CTrainingthread(object):
 		
 		start_local_t = self.local_t
 		
-		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess)) ###
+		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess))
 		
 		if use_rnn:
 			start_rnn_state = self.local_network.rnn_state_out
@@ -111,6 +111,7 @@ class A3CTrainingthread(object):
 				
 			if terminal:
 				terminal_end = True
+				self.snf = SNF()
 				self.state = State(self.snf,self.state_ops,sess)
 				
 				if len(self.episode_rewards) >= 2:
