@@ -883,9 +883,9 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
-    rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0)
-    W_p = tf.get_variable("W_p", [total_arg_size, output_size])
-    W_m = tf.get_variable("W_m", [total_arg_size, output_size])
+    rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0) 
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size]) ### Add initializer?
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size]) ### Add initializer?
     # Element-wise multiplication
     matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
     #matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
@@ -895,7 +895,14 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
       res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
       return res
-    bias_term = tf.get_variable(
-        "Bias", [output_size],
-        initializer=tf.constant_initializer(bias_start))
+    #bias_term = tf.get_variable(
+    #    "Bias", [output_size],
+    #    initializer=tf.constant_initializer(bias_start))
+	
+    rand2 = tf.random_uniform([output_size], minval=-1.0, maxval=1.0) 
+    b_p = tf.get_variable("b_p", [output_size]) ### Add initializer?
+    b_m = tf.get_variable("b_m", [output_size], initializer=tf.constant_initializer(bias_start))
+    # Element-wise multiplication
+    bias_term = tf.mul(b_m,(tf.nn.tanh(rand2 - b_p)))	
+	
   return res + bias_term

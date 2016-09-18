@@ -5,8 +5,8 @@ import numpy as np
 
 import rnn
 import rnn_cell
-from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, inv_scale_grads, scale_num
-from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, grad_scaling_factor, p
+from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
+from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method
 
 
 # Actor-Critic Network (policy and value network)
@@ -206,8 +206,8 @@ class A3CFF(A3CNet):
 			self.b2 = bias_vector(1,1)
 
 			# policy
-			self.mean = tf.mul(grads, self.W1) + self.b1
-			self.variance = tf.maximum(0.01,tf.nn.relu(tf.mul(grads, self.W2) + self.b2)) # softplus causes NaNs in FF
+			self.mean = tf.mul(self.grads, self.W1) + self.b1
+			self.variance = tf.maximum(0.01,tf.nn.relu(tf.mul(self.grads, self.W2) + self.b2)) # softplus causes NaNs in FF
 			
 			# value - linear output layer
 			grads_and_update = tf.concat(2, [self.grads, self.update])

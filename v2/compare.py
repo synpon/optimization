@@ -24,7 +24,7 @@ saver.restore(sess, save_path)
 if not use_rnn:
 	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
-net = MLP_RELU(opt_net)
+net = MLP(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
@@ -79,7 +79,7 @@ for i in range(10):
 		[mean, rnn_state_out] = sess.run([net.opt_net.mean, net.opt_net.rnn_state], feed_dict=feed_dict)
 		
 		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:mean})
+		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:mean}) ### output summary
 		
 		opt_net_writer.add_summary(summary,j)
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})

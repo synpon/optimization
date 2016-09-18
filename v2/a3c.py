@@ -72,10 +72,10 @@ def train_function(parallel_index):
 		
 		# Printing for each thread allows synchronization and divergence to be detected
 		if count % summary_freq == 0:
-			#if use_rnn:
-			#	print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
-			#else:
-			#	print "%.4f\t\t %.3g\t %.3f\t %d" % (np.mean(discounted_rewards), np.mean(losses), sess.run(global_network.W1)[0][0], global_t)
+			if use_rnn:
+				print "%.4g\t\t %.4g\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
+			else:
+				print "%.4f\t\t %.3g\t %.3f\t %d" % (np.mean(discounted_rewards), np.mean(losses), sess.run(global_network.W1)[0][0], global_t)
 			discounted_rewards = []
 			losses = []
 			

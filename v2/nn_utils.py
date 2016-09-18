@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 import tensorflow as tf
 
-from constants import grad_scaling_method, grad_scaling_factor, p
+from constants import grad_scaling_method
 
 
 def weight_matrix(num_in, num_out):
@@ -48,58 +48,24 @@ def fc_layer(layer_in, num_in, num_out, activation_fn):
 		
 
 # Doubles the number of features
-def scale_grads(input):
-	if grad_scaling_method == 'scalar':
-		return input*tf.constant(grad_scaling_factor)	
-		
-	elif grad_scaling_method == 'full':	
-		p_ = tf.constant(p)
-		grad_threshold = tf.exp(-p_)
-	
+def scale_grads(x):
+	if grad_scaling_method == 'full':
 		# Operations are element-wise
-		mask = tf.greater(tf.abs(input),grad_threshold)
-		mask = tf.to_float(mask) # Convert from boolean
+		return tf.sign(x)*tf.log(tf.maximum(tf.abs(x + tf.sign(x)),1e-2))
+	return x
+	
+	
+def np_inv_scale_grads(x):
+	if grad_scaling_method == 'full':	
+		# Operations are element-wise
+		mask = np.greater(x,0.0)
 		inv_mask = 1 - mask
 		
-		x1_cond1 = tf.log(tf.abs(input))/p_
-		x2_cond1 = tf.sign(input)
-		x1_cond2 = -tf.ones(tf.shape(input))
-		x2_cond2 = tf.exp(p_)*input
+		x_cond1 = np.exp(x)-1
+		x_cond2 = np.exp(-x)*(np.exp(x)-1)
+
+		return x_cond1*mask + x_cond2*inv_mask
 		
-		x1 = x1_cond1*mask + x1_cond2*inv_mask
-		x2 = x2_cond1*mask + x2_cond2*inv_mask
-		
-		return tf.concat(2,[x1,x2])	
-	return input
-	
-	
-# Halves the number of features
-def inv_scale_grads(input): ### Doesn't work
-	if grad_scaling_method == 'scalar':
-		return input/tf.constant(grad_scaling_factor)	
-		
-	elif grad_scaling_method == 'full':	
-		p_ = tf.constant(p)
-	
-		# Operations are element-wise
-		a,b = tf.split(2,2,input)
-		mask = tf.equal(tf.abs(b),1.0)
-		mask = tf.to_float(mask) # Convert from boolean
-		inv_mask = 1 - mask
-		
-		x_cond1 = tf.sign(b)*tf.exp(a*p_)
-		x_cond2 = b/tf.exp(p_)
-		
-		return x_cond1*mask + x_cond2*inv_mask		
-	return input
-	
-def scale_num(x):
-	return tf.sign(x)*tf.log(tf.abs(x))
-	
-def inv_scale_num(x):
-	return tf.sign(x)*tf.exp(tf.abs(x))
-	
-def np_inv_scale_num(x):
-	return np.sign(x)*np.exp(np.abs(x))
+	return x
 	
 	

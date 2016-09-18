@@ -114,10 +114,10 @@ class A3CTrainingthread(object):
 				self.snf = SNF()
 				self.state = State(self.snf,self.state_ops,sess)
 				
-				if len(self.episode_rewards) >= 2:
-					print "Episode reward: %4f\t%4f\t%d" % (self.episode_rewards[-1] - self.episode_rewards[0], np.mean(self.episode_rewards), global_t)
-				else:
-					print "Episode reward cannot be computed"
+				#if len(self.episode_rewards) >= 2:
+				#	print "Episode reward: %4f\t%4f\t%d" % (self.episode_rewards[-1] - self.episode_rewards[0], np.mean(self.episode_rewards), global_t)
+				#else:
+				#	print "Episode reward cannot be computed"
 					
 				self.episode_rewards = []
 				if use_rnn:

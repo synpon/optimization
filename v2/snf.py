@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 
 from constants import k, m, var_size, grad_noise
-from nn_utils import inv_scale_grads
+from nn_utils import scale_grads, np_inv_scale_grads
 
 
 class SNF(object):
@@ -46,9 +46,9 @@ class SNF(object):
 	def choose_action(self,mean,variance):
 		for i,v in enumerate(variance):
 			mean[i] += np.random.normal(0,v)*mean[i]
-		#mean = inv_scale_grads(mean)
-		mean = np.reshape(mean,[1,m,1])
-		return mean
+		action = np.reshape(mean,[1,m,1])
+		action = np_inv_scale_grads(action)
+		return action
 	
 	
 	def act(self, state, action, state_ops, sess):
@@ -92,8 +92,9 @@ class StateOps:
 		
 		self.loss = tf.reduce_mean(losses,reduction_indices=[0]) # Average over the hyperplanes
 		
-		self.grads = tf.gradients(self.loss,self.point)[0]
-		self.grads = tf.reshape(self.grads,[1,m,1])
+		grads = tf.gradients(self.loss,self.point)[0]
+		grads = tf.reshape(grads,[1,m,1])
+		self.grads = scale_grads(grads)
 		
 		
 class State(object):
