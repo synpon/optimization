@@ -35,8 +35,8 @@ class A3CNet(object):
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
-		self.total_loss = policy_loss + value_loss
-		
+		#self.total_loss = policy_loss + value_loss
+		self.total_loss = tf.clip_by_value(policy_loss + value_loss, -1.0, 1.0) ### Fix the underlying problem that causes occasional large losses
 
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
@@ -182,7 +182,7 @@ class A3CRNN(A3CNet):
 		
 		
 # Feed-forward
-class A3CFF(A3CNet):
+class A3CFF(A3CNet): ### Still uses updates for the value function
 	def __init__(self, num_trainable_vars):
 	
 		# Input
