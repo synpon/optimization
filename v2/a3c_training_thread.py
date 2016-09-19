@@ -87,6 +87,7 @@ class A3CTrainingthread(object):
 			start_rnn_state = self.local_network.rnn_state_out
 
 		episode_losses = []
+		prev_snf_loss = None
 		
 		for i in range(local_t_max):
 			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state, self.snf, self.state_ops)
@@ -98,8 +99,14 @@ class A3CTrainingthread(object):
 			values.append(value)
 
 			# State is the point, action is the update
-			reward, next_state = self.snf.act(self.state, action, self.state_ops, sess)
+			snf_loss, next_state = self.snf.act(self.state, action, self.state_ops, sess)
+			if prev_snf_loss is None:
+				reward = 0
+			else:
+				reward = np.sign(prev_snf_loss - snf_loss)
+			prev_snf_loss = snf_loss
 			
+			### Consider making the reward the change in loss?
 			self.episode_rewards.append(reward)
 			rewards.append(reward)
 			snf_losses.append(-reward)

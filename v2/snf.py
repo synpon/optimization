@@ -57,7 +57,7 @@ class SNF(object):
 		loss = self.calc_loss(state.point, state_ops, sess)
 		reward = -loss
 		state.calc_and_set_grads(self, state_ops, sess)
-		return reward, state
+		return loss, state ### changed
 		
 		
 class StateOps:

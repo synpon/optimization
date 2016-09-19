@@ -1,4 +1,4 @@
-#rm nohup.out && nohup python -u a3c.py -s &
+#rm nohup.out; nohup python -u a3c.py -s &
 #kill -INT 10160
 from __future__ import division
 

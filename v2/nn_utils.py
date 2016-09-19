@@ -45,6 +45,11 @@ def fc_layer(layer_in, num_in, num_out, activation_fn):
 		out = activation_fn(out)
 		
 	return out
+	
+	
+def xavier_initializer(dims):
+	d = np.sqrt(6.0)/np.sqrt(sum(dims))
+	return tf.random_uniform_initializer(minval=-d, maxval=d)
 		
 
 # Doubles the number of features

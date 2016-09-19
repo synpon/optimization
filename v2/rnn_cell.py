@@ -7,8 +7,9 @@ import math
 
 import six
 import tensorflow as tf
+import numpy as np
 
-from nn_utils import weight_matrix, bias_vector
+from nn_utils import weight_matrix, bias_vector, xavier_initializer
 
 def _is_sequence(seq):
   return (isinstance(seq, collections.Sequence)
@@ -883,9 +884,10 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
-    rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0) 
-    W_p = tf.get_variable("W_p", [total_arg_size, output_size]) ### Add initializer?
-    W_m = tf.get_variable("W_m", [total_arg_size, output_size]) ### Add initializer?
+    rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0)
+	### Put initializers back to normal?
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
     # Element-wise multiplication
     matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
     #matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
@@ -900,8 +902,8 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
     #    initializer=tf.constant_initializer(bias_start))
 	
     rand2 = tf.random_uniform([output_size], minval=-1.0, maxval=1.0) 
-    b_p = tf.get_variable("b_p", [output_size]) ### Add initializer?
-    b_m = tf.get_variable("b_m", [output_size], initializer=tf.constant_initializer(bias_start))
+    b_p = tf.get_variable("b_p", [output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
+    b_m = tf.get_variable("b_m", [output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
     # Element-wise multiplication
     bias_term = tf.mul(b_m,(tf.nn.tanh(rand2 - b_p)))	
 	

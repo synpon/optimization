@@ -36,7 +36,8 @@ class A3CNet(object):
 		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
 
 		#self.total_loss = policy_loss + value_loss
-		self.total_loss = tf.clip_by_value(policy_loss + value_loss, -1.0, 1.0) ### Fix the underlying problem that causes occasional large losses
+		#self.total_loss = scale_grads(policy_loss + value_loss)
+		self.total_loss = tf.clip_by_value(policy_loss + value_loss, -2.0, 2.0) ### Fix the underlying problem that causes occasional large losses
 
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
@@ -123,15 +124,16 @@ class A3CRNN(A3CNet):
 			self.variance = tf.maximum(0.01,h) # protection against NaNs
 			
 			# value - linear output layer
+			# Average over the parameters ### correct?
 			mean_output = tf.reduce_mean(self.output, reduction_indices=[1]) # [self.step_size[0], self.cell.state_size]
 			
 			### Needs more layers?
 			snf_loss = tf.expand_dims(self.snf_loss, 1)
-			mean_output_and_snf_loss = tf.concat(1, [mean_output, snf_loss])
+			mean_output_and_snf_loss = mean_output#tf.concat(1, [mean_output, snf_loss])
 			#mean_output_and_snf_loss = snf_loss ### works better?
-			v_h = fc_layer(mean_output_and_snf_loss, num_in=rnn_size + 1, num_out=10, activation_fn=tf.nn.relu)
+			v_h = fc_layer(mean_output_and_snf_loss, num_in=rnn_size, num_out=10, activation_fn=tf.nn.relu) ###
 			v_h = fc_layer(v_h, num_in=10, num_out=10, activation_fn=tf.nn.relu)
-			v = tf.contrib.layers.fully_connected(v_h, num_outputs=1, activation_fn=None)
+			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
 			
 		self.v = v
 		
