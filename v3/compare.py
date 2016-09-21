@@ -7,22 +7,16 @@ import numpy as np
 from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
-from ac_network import A3CRNN, A3CFF
-from constants import use_rnn, summaries_dir, save_path, m, rnn_size
+from optimizer import Optimizer
+from constants import summaries_dir, save_path, m, rnn_size
 
 sess = tf.Session()
-
-if use_rnn:
-	opt_net = A3CRNN([None])
-else:
-	opt_net = A3CFF([None])
+	
+opt_net = Optimizer()
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
-
-if not use_rnn:
-	print "Loaded: W: %f\tb: %f" % (sess.run(opt_net.W1)[0], sess.run(opt_net.b1)[0])
 
 net = MLP(opt_net)
 sess.run(net.init)
@@ -76,10 +70,10 @@ for i in range(10):
 		
 		# Compute update
 		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([net.num_params])}
-		[mean, rnn_state_out] = sess.run([net.opt_net.mean, net.opt_net.rnn_state], feed_dict=feed_dict)
+		[update, rnn_state_out] = sess.run([net.opt_net.update, net.opt_net.rnn_state], feed_dict=feed_dict)
 		
 		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:mean}) ### output summary
+		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update}) ### output summary from run ### error here
 		
 		opt_net_writer.add_summary(summary,j)
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})

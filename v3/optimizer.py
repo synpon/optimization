@@ -15,7 +15,7 @@ class Optimizer(object):
 	def __init__(self):
 		# Input
 		self.point = tf.placeholder(tf.float32, [m,1], 'point') # Used to calculate loss only
-		self.point_snf_loss = tf.placeholder(tf.float32, [1], 'snf_loss')
+		self.snf_loss = tf.placeholder(tf.float32, [1], 'snf_loss')
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
@@ -39,11 +39,10 @@ class Optimizer(object):
 				raise NotImplementedError
 			
 			# placeholder for RNN unrolling time step size.
-			self.step_size = tf.placeholder(tf.int32, [1])
-			step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
+			self.step_size = tf.placeholder(tf.int32, [1], 'step_size')
+			self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
-			#self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size])
-			self.initial_rnn_state = tf.zeros([m,self.cell.state_size])
+			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size], 'rnn_state')
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
@@ -54,21 +53,21 @@ class Optimizer(object):
 			output, rnn_state = rnn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
-									sequence_length = step_size,
+									sequence_length = self.step_size,
 									time_major = False)#,
 									#scope = scope)			
 			
-			self.output = tf.reshape(output,tf.pack([step_size[0],n_dims,rnn_size]))		
+			self.output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,rnn_size]))		
 			self.rnn_state = rnn_state # [m, rnn_size*num_rnn_layers]
 		
-			self.update = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=None)
-			self.update = tf.reshape(self.update,[m,1])
+			update = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=None)
+			self.update = tf.reshape(update, tf.pack([n_dims,1]))
 			self.new_point = self.point + self.update
 			
-			self.snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
+			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
 			
 			### Add noise?
-			self.loss = tf.sign(self.point_snf_loss - self.snf_loss)
+			self.loss = tf.sign(self.snf_loss - self.new_snf_loss)
 			
 			### Weight by Gamma distribution pdf
 			

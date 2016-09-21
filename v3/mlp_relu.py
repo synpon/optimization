@@ -1,7 +1,7 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_size
+from constants import rnn_size
 
 # https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/multilayer_perceptron.py
 

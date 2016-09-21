@@ -10,10 +10,11 @@ import rnn
 import rnn_cell
 from constants import num_iterations, seq_length, save_path, summary_freq, \
     num_samples_for_gamma, replay_mem_start_size, replay_memory_max_size, \
-	num_SNFs
+	num_SNFs, num_rnn_layers, rnn_size, m
 from snf import SNF, State, StateOps
 from optimizer import Optimizer
 
+#rm nohup.out; nohup python -u main.py -s &
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -72,15 +73,18 @@ def main():
 		snf = state.snf
 		shape, loc, scale = snf.gamma_dist_params
 		
+		rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
+		
 		for j in range(seq_length):
 			### Handle the RNN state
 			feed_dict = {opt_net.point:state.point, 
-							opt_net.point_snf_loss:[state.loss],
+							opt_net.snf_loss:[state.loss],
 							opt_net.variances:snf.variances, 
 							opt_net.weights:snf.weights, 
 							opt_net.hyperplanes:snf.hyperplanes, 
 							opt_net.grads:state.grads,
-							opt_net.step_size:[1]}
+							opt_net.step_size:np.ones([m]),
+							opt_net.initial_rnn_state:rnn_state}
 							
 			loss,new_point,_ = sess.run([opt_net.loss, opt_net.new_point, opt_net.train_step], feed_dict=feed_dict)
 			losses.append(loss)

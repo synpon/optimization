@@ -5,10 +5,7 @@ import numpy as np
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
-summary_freq = 10
-
-num_iterations = 100
-batch_size = 32 ### use
+summary_freq = 50
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru']
@@ -21,6 +18,9 @@ k = 10 # Number of hyperplanes
 m = 30 # Number of dimensions
 var_size = 0.2
 
+#===# Training constants #===#
+num_iterations = 1000
+batch_size = 32 ### use
 seq_length = 10
 num_SNFs = 100
 num_samples_for_gamma = 100
