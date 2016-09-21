@@ -21,7 +21,11 @@ k = 10 # Number of hyperplanes
 m = 30 # Number of dimensions
 var_size = 0.2
 
-max_seq_length = 10
+seq_length = 10
+num_SNFs = 100
+num_samples_for_gamma = 100
+replay_mem_start_size = 1000
+replay_memory_max_size = 1000000
 
 grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[1]
