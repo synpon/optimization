@@ -41,6 +41,7 @@ def main():
 		for j in range(num_samples_for_gamma):
 			state = State(snf, state_ops, sess)
 			loss = snf.calc_loss(state.point, state_ops, sess)
+
 			# The Gamma distribution is only defined for positive numbers
 			losses.append(-loss)
 	
@@ -55,8 +56,8 @@ def main():
 	# Add some initial states to the replay memory
 	for i in range(replay_mem_start_size):
 	    snf = random.choice(snfs)
+		# Initializer computes a random point and the SNF loss
 	    state = State(snf, state_ops, sess)
-	    state.snf = snf
 	    replay_memory.append(state)
 	
 	init = tf.initialize_all_variables()
@@ -64,15 +65,32 @@ def main():
 	
 	losses = []
 
+	# Training loop
 	for i in range(num_iterations):
-		snf = SNF()
-		state = State(snf, state_ops, sess) # Starting point
+	    # Retrieve a starting point from the replay memory
+		state = random.choice(replay_memory)
+		snf = state.snf
+		shape, loc, scale = snf.gamma_dist_params
 		
 		for j in range(seq_length):
-			update = opt_net.run_policy(sess, state)
-			### Run backprop - outside this loop?
-			loss, state = snf.act(state, update, state_ops, sess)
+			### Handle the RNN state
+			feed_dict = {opt_net.point:state.point, 
+							opt_net.point_snf_loss:[state.loss],
+							opt_net.variances:snf.variances, 
+							opt_net.weights:snf.weights, 
+							opt_net.hyperplanes:snf.hyperplanes, 
+							opt_net.grads:state.grads,
+							opt_net.step_size:[1]}
+							
+			loss,new_point,_ = sess.run([opt_net.loss, opt_net.new_point, opt_net.train_step], feed_dict=feed_dict)
 			losses.append(loss)
+			
+			new_state = state
+			new_state.point = new_point
+			###new_state.grads?
+			replay_memory.append(new_state)
+			
+		### Run backprop
 			
 		if i % summary_freq == 0:
 			print "%d\t%.4f" % (i, np.mean(losses))
@@ -86,3 +104,4 @@ def main():
 
 if __name__ == "__main__":
 	main()
+	

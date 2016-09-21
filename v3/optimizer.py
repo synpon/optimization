@@ -7,16 +7,21 @@ import numpy as np
 import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
-from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method
-
+from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method
+from snf import calc_snf_loss_tf
 
 class Optimizer(object):
 
 	def __init__(self):
 		# Input
+		self.point = tf.placeholder(tf.float32, [m,1], 'point') # Used to calculate loss only
+		self.point_snf_loss = tf.placeholder(tf.float32, [1], 'snf_loss')
+		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
+		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
+		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
 		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
-		n_dims = tf.shape(self.grads)[1]
 		
+		n_dims = tf.shape(self.grads)[1]	
 		grads = self.grads
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
@@ -35,9 +40,10 @@ class Optimizer(object):
 			
 			# placeholder for RNN unrolling time step size.
 			self.step_size = tf.placeholder(tf.int32, [1])
-			self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
+			step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
-			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size])
+			#self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size])
+			self.initial_rnn_state = tf.zeros([m,self.cell.state_size])
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
@@ -48,17 +54,27 @@ class Optimizer(object):
 			output, rnn_state = rnn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
-									sequence_length = self.step_size,
+									sequence_length = step_size,
 									time_major = False)#,
 									#scope = scope)			
 			
-			self.output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,rnn_size]))		
+			self.output = tf.reshape(output,tf.pack([step_size[0],n_dims,rnn_size]))		
 			self.rnn_state = rnn_state # [m, rnn_size*num_rnn_layers]
 		
 			self.update = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=None)
-
-			h = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
-
+			self.update = tf.reshape(self.update,[m,1])
+			self.new_point = self.point + self.update
+			
+			self.snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
+			
+			### Add noise?
+			self.loss = tf.sign(self.point_snf_loss - self.snf_loss)
+			
+			### Weight by Gamma distribution pdf
+			
+			opt = tf.train.AdamOptimizer()
+			self.train_step = opt.minimize(self.loss)
+			
 		self.trainable_vars = tf.trainable_variables()	
 		self.reset_rnn_state()
 
