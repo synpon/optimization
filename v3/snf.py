@@ -18,15 +18,6 @@ class SNF(object):
 		self.weights = np.random.rand(k)
 		self.weights = np.reshape(self.weights,[k,1])
 	
-	
-	def calc_loss(self, point, state_ops, sess):
-		loss = sess.run([state_ops.loss], 
-						feed_dict={	state_ops.point: point, 
-									state_ops.hyperplanes: self.hyperplanes, 
-									state_ops.variances: self.variances, 
-									state_ops.weights: self.weights})
-		return loss[0] ### why loss[0] but not for calc_loss_and_grads?
-		
 		
 	def calc_loss_and_grads(self, point, state_ops, sess):
 		loss, grads = sess.run([state_ops.loss, state_ops.grads], 
@@ -34,30 +25,14 @@ class SNF(object):
 									state_ops.hyperplanes: self.hyperplanes, 
 									state_ops.variances: self.variances, 
 									state_ops.weights: self.weights})
-		return loss, grads
+		return loss, grads ### loss[0]?
 		
 		
 	def gen_points(self,num_points):
 		points = np.random.rand(m*num_points)
 		points = np.reshape(points,[m,num_points])
 		return points
-		
-		
-	def choose_action(self,mean,variance):
-		for i,v in enumerate(variance):
-			mean[i] += np.random.normal(0,v)*mean[i]
-		action = np.reshape(mean,[1,m,1])
-		action = np_inv_scale_grads(action)
-		return action
 	
-	
-	def act(self, state, action, state_ops, sess):
-		action = np.reshape(action,[m,1])
-		state.point += action		
-		loss = self.calc_loss(state.point, state_ops, sess)
-		state.calc_and_set_grads(self, state_ops, sess)
-		return loss, state
-		
 		
 def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	hyperplanes = tf.reshape(hyperplanes, [k,m,m])

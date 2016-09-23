@@ -8,7 +8,7 @@ from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
 from optimizer import Optimizer
-from constants import summaries_dir, save_path, m, rnn_size
+from constants import summaries_dir, save_path
 
 sess = tf.Session()
 	
@@ -70,11 +70,13 @@ for i in range(10):
 		
 		# Compute update
 		### rnn state compatibility? main uses state.rnn_state
-		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([net.num_params])}
+		feed_dict = {net.opt_net.input_grads: grads, 
+				net.opt_net.initial_rnn_state: rnn_state_out, 
+				net.opt_net.step_size: np.ones([net.num_params])}
 		[update, rnn_state_out] = sess.run([net.opt_net.update, net.opt_net.rnn_state], feed_dict=feed_dict)
 		
 		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update}) ### output summary from run ### error here
+		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update}) ### output summary from run
 		
 		opt_net_writer.add_summary(summary,j)
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})

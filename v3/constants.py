@@ -23,7 +23,6 @@ num_iterations = 1000
 batch_size = 32 ### use
 seq_length = 10
 num_SNFs = 100
-#num_samples_for_gamma = 100
 episode_length = 1000
 replay_mem_start_size = 1000
 replay_memory_max_size = 1000000
@@ -32,4 +31,4 @@ grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[1]
 
 # Random noise is computed each time the point is processed while training the opt net
-grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.
+grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero. ### increase?

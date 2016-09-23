@@ -4,17 +4,19 @@ import random
 
 import tensorflow as tf
 import numpy as np
-import scipy.stats as ss
 
-import rnn
-import rnn_cell
 from constants import num_iterations, seq_length, save_path, summary_freq, \
     episode_length, replay_mem_start_size, replay_memory_max_size, \
 	num_SNFs, num_rnn_layers, rnn_size, m
 from snf import SNF, State, StateOps
 from optimizer import Optimizer
 
-#rm nohup.out; nohup python -u main.py -s &
+"""
+rm nohup.out; nohup python -u main.py -s &
+
+pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
+pychecker main.py
+"""
 
 ### check grad scaling is inverted if it is done
 def main():
@@ -38,26 +40,15 @@ def main():
 	print "Generating SNFs..."
 	for i in range(num_SNFs):
 		snf = SNF()
-		#losses = []
-		
-		#for j in range(num_samples_for_gamma):
-		#	state = State(snf, state_ops, sess)
-		#	loss = snf.calc_loss(state.point, state_ops, sess)
-
-			# The Gamma distribution is only defined for positive numbers
-			#losses.append(-loss)
-	
-		# Fit Gamma distribution
-		#shape, loc, scale = ss.gamma.fit(losses)
-	   
-		#snf.gamma_dist_params = [shape, loc, scale]
 		snfs.append(snf)
 	
 	print "Initializing replay memory..."
 	replay_memory = []
+	
 	# Add some initial states to the replay memory
 	for i in range(replay_mem_start_size):
 	    snf = random.choice(snfs)
+		
 		# Initializer computes a random point and the SNF loss
 	    state = State(snf, state_ops, sess)
 	    replay_memory.append(state)
@@ -72,7 +63,6 @@ def main():
 	    # Retrieve a starting point from the replay memory
 		state = random.choice(replay_memory)
 		snf = state.snf
-		#shape, loc, scale = snf.gamma_dist_params
 		
 		for j in range(seq_length):
 			feed_dict = {opt_net.point: state.point, 

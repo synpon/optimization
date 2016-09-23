@@ -1,5 +1,4 @@
 from __future__ import division
-import random
 
 import tensorflow as tf
 import numpy as np
@@ -20,10 +19,6 @@ class Optimizer(object):
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
 		self.input_grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
-		
-		# Gamma distribution
-		#self.alpha = tf.placeholder(tf.float32)
-		#self.beta = tf.placeholder(tf.float32)
 		
 		grads = self.input_grads
 		n_dims = tf.shape(grads)[1]	
@@ -74,15 +69,10 @@ class Optimizer(object):
 			
 			self.grads = calc_grads_tf(self.loss, self.new_point)
 			
-			### Weight by Gamma distribution pdf
-			#gamma = tf.contrib.distributions.Gamma(alpha, beta)
-			#self.loss *= gamma.log_prob(x)
-			
 			opt = tf.train.AdamOptimizer()
 			self.train_step = opt.minimize(self.loss)
 			
-		self.trainable_vars = tf.trainable_variables()	
-		#self.reset_rnn_state()
+		self.trainable_vars = tf.trainable_variables()
 
 		
 	# Updates the RNN state
@@ -92,10 +82,6 @@ class Optimizer(object):
 		return update
 	
 
-	#def reset_rnn_state(self):
-	#	self.rnn_state_out = np.zeros([m,self.cell.state_size])
-		
-		
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
 		dst_vars = self.trainable_vars
