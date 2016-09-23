@@ -8,7 +8,7 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method
-from snf import calc_snf_loss_tf
+from snf import calc_snf_loss_tf, calc_grads_tf
 
 class Optimizer(object):
 
@@ -19,10 +19,14 @@ class Optimizer(object):
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
-		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
+		self.input_grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
 		
-		n_dims = tf.shape(self.grads)[1]	
-		grads = self.grads
+		# Gamma distribution
+		#self.alpha = tf.placeholder(tf.float32)
+		#self.beta = tf.placeholder(tf.float32)
+		
+		grads = self.input_grads
+		n_dims = tf.shape(grads)[1]	
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
@@ -64,18 +68,21 @@ class Optimizer(object):
 			self.update = tf.reshape(update, tf.pack([n_dims,1]))
 			self.new_point = self.point + self.update
 			
-			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
+			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights) ### Add noise?
 			
-			### Add noise?
 			self.loss = tf.sign(self.snf_loss - self.new_snf_loss)
 			
+			self.grads = calc_grads_tf(self.loss, self.new_point)
+			
 			### Weight by Gamma distribution pdf
+			#gamma = tf.contrib.distributions.Gamma(alpha, beta)
+			#self.loss *= gamma.log_prob(x)
 			
 			opt = tf.train.AdamOptimizer()
 			self.train_step = opt.minimize(self.loss)
 			
 		self.trainable_vars = tf.trainable_variables()	
-		self.reset_rnn_state()
+		#self.reset_rnn_state()
 
 		
 	# Updates the RNN state
@@ -85,8 +92,8 @@ class Optimizer(object):
 		return update
 	
 
-	def reset_rnn_state(self):
-		self.rnn_state_out = np.zeros([m,self.cell.state_size])
+	#def reset_rnn_state(self):
+	#	self.rnn_state_out = np.zeros([m,self.cell.state_size])
 		
 		
 	def sync_from(self, src_network, name=None):

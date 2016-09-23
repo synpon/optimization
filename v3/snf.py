@@ -3,7 +3,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-from constants import k, m, var_size, grad_noise
+from constants import k, m, var_size, grad_noise, rnn_size, num_rnn_layers
 from nn_utils import scale_grads, np_inv_scale_grads
 
 
@@ -80,7 +80,13 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	losses *= var_coeffs # [k]
 	losses *= weights # element-wise [k]
 	
-	return tf.reduce_mean(losses,reduction_indices=[0]) # Average over the hyperplanes	
+	return tf.reduce_mean(losses,reduction_indices=[0]) # Average over the hyperplanes
+
+	
+def calc_grads_tf(loss,point):
+	grads = tf.gradients(loss,point)[0]
+	grads = tf.reshape(grads,[1,m,1])
+	return scale_grads(grads)
 		
 		
 class StateOps: ### deprecate
@@ -124,6 +130,8 @@ class State(object):
 	def __init__(self, snf, state_ops, sess):
 		self.snf = snf
 		self.point = snf.gen_points(1)
+		self.counter = 1
+		self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
 		self.loss_and_grads(snf, state_ops, sess) # calc and set
 		
 		

@@ -23,7 +23,8 @@ num_iterations = 1000
 batch_size = 32 ### use
 seq_length = 10
 num_SNFs = 100
-num_samples_for_gamma = 100
+#num_samples_for_gamma = 100
+episode_length = 1000
 replay_mem_start_size = 1000
 replay_memory_max_size = 1000000
 

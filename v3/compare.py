@@ -69,6 +69,7 @@ for i in range(10):
 		grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
 		
 		# Compute update
+		### rnn state compatibility? main uses state.rnn_state
 		feed_dict = {net.opt_net.grads:grads, net.opt_net.initial_rnn_state:rnn_state_out, net.opt_net.step_size:np.ones([net.num_params])}
 		[update, rnn_state_out] = sess.run([net.opt_net.update, net.opt_net.rnn_state], feed_dict=feed_dict)
 		
