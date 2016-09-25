@@ -5,8 +5,9 @@ import numpy as np
 
 import rnn
 import rnn_cell
-from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
-from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method
+from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
+from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
+		discount_rate, episode_length, grad_noise
 from snf import calc_snf_loss_tf, calc_grads_tf
 
 class Optimizer(object):
@@ -19,6 +20,7 @@ class Optimizer(object):
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
 		self.input_grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
+		self.state_index = tf.placeholder(tf.float32, name='state_index')
 		
 		grads = self.input_grads
 		n_dims = tf.shape(grads)[1]	
@@ -60,39 +62,25 @@ class Optimizer(object):
 			self.rnn_state = rnn_state # [m, rnn_size*num_rnn_layers]
 		
 			update = fc_layer3(self.output, num_in=rnn_size, num_out=1, activation_fn=None)
-			self.update = tf.reshape(update, tf.pack([n_dims,1]))
-			self.new_point = self.point + self.update
+			update = tf.reshape(update, tf.pack([n_dims,1]))
+			self.update = inv_scale_grads(update)
 			
-			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights) ### Add noise?
+			self.new_point = self.point + self.update		
+			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
 			
-			self.loss = tf.sign(self.snf_loss - self.new_snf_loss)
+			loss = tf.sign(self.snf_loss - self.new_snf_loss)
+			
+			# Weight the loss by its position in the optimisation process
+			tmp = tf.pow(discount_rate, episode_length - self.state_index)
+			w = (tmp*(1 - discount_rate))/(1 - tmp)
+			self.loss = loss### * w
 			
 			self.grads = calc_grads_tf(self.loss, self.new_point)
+			if grad_noise > 0:
+				self.grads += np.abs(self.grads)*grad_noise*np.random.random((1,m,1))
 			
 			opt = tf.train.AdamOptimizer()
 			self.train_step = opt.minimize(self.loss)
-			
-		self.trainable_vars = tf.trainable_variables()
-
-		
-	# Updates the RNN state
-	def run_policy(self, sess, state):		
-		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m])}
-		[update, self.rnn_state_out] = sess.run([self.update, self.rnn_state], feed_dict=feed_dict)
-		return update
-	
-
-	def sync_from(self, src_network, name=None):
-		src_vars = src_network.trainable_vars
-		dst_vars = self.trainable_vars
-
-		sync_ops = []
-		with tf.op_scope([], name, "A3CNet") as name:
-			for(src_var, dst_var) in zip(src_vars, dst_vars):
-				sync_op = tf.assign(dst_var, src_var)
-				sync_ops.append(sync_op)
-
-			return tf.group(*sync_ops, name=name)
 			
 
 	# Update the parameters of another network (eg an MLP)

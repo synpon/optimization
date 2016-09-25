@@ -18,7 +18,7 @@ pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
 pychecker main.py
 """
 
-### check grad scaling is inverted if it is done
+### grad scaling has not been inverted
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -72,7 +72,8 @@ def main():
 							opt_net.hyperplanes: snf.hyperplanes, 
 							opt_net.input_grads: state.grads,
 							opt_net.step_size: np.ones([m]),
-							opt_net.initial_rnn_state: state.rnn_state}
+							opt_net.initial_rnn_state: state.rnn_state,
+							opt_net.state_index: state.counter}
 							
 			loss,new_point,rnn_state,grads,_ = sess.run([opt_net.loss, 
 														opt_net.new_point, 
@@ -88,11 +89,10 @@ def main():
 			
 			state.counter += 1
 			if state.counter >= episode_length:
-				state = random.choice(replay_memory) ### or create a new state?
+				snf = random.choice(snfs)
+				state = State(snf, state_ops, sess)
 			
 			replay_memory.append(state)
-			
-		### Run backprop
 			
 		if i % summary_freq == 0:
 			print "%d\t%.4f" % (i, np.mean(losses))

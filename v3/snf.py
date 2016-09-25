@@ -25,7 +25,7 @@ class SNF(object):
 									state_ops.hyperplanes: self.hyperplanes, 
 									state_ops.variances: self.variances, 
 									state_ops.weights: self.weights})
-		return loss, grads ### loss[0]?
+		return loss, grads
 		
 		
 	def gen_points(self,num_points):
@@ -53,12 +53,12 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	losses = -tf.exp(losses) # [k]
 	var_coeffs = 1/tf.sqrt(2*variances*3.14) # [k]
 	losses *= var_coeffs # [k]
-	losses *= weights # element-wise [k]
+	losses *= weights # element-wise [k] ### check dimensions
 	
-	return tf.reduce_mean(losses,reduction_indices=[0]) # Average over the hyperplanes
+	return tf.reduce_mean(losses) # Average over the hyperplanes 
 
 	
-def calc_grads_tf(loss,point):
+def calc_grads_tf(loss,point): ### add noise
 	grads = tf.gradients(loss,point)[0]
 	grads = tf.reshape(grads,[1,m,1])
 	return scale_grads(grads)
@@ -73,32 +73,9 @@ class StateOps: ### deprecate
 		self.weights = tf.placeholder(tf.float32, [k,1])
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k]) # Points which define the hyperplanes
 		
-		hyperplanes = tf.reshape(self.hyperplanes, [k,m,m])
-		hp_inv = tf.batch_matrix_inverse(hyperplanes) # [k,m,m]
-		x = tf.ones((k,m,1))
-		a = tf.batch_matmul(hp_inv, x) # [k,m,1]
-		point = tf.transpose(self.point,[1,0]) # [1,m]
-		point = tf.reshape(point,[1,1,m])
-		point = tf.tile(point,[k,1,1]) # [k,1,m]
-		D = tf.batch_matmul(point,a) - 1 # [k,1,1]
-		D = tf.reshape(D,[k])
-		norm = tf.sqrt(tf.reduce_sum(tf.square(a),reduction_indices=[1])) # [k]
-		D /= norm # [k]
-		losses = tf.abs(D) # [k]
-		
-		losses = tf.square(losses) # [k]
-		losses /= -2*self.variances # [k]
-		losses = -tf.exp(losses) # [k]
-		var_coeffs = 1/tf.sqrt(2*self.variances*3.14) # [k]
-		losses *= var_coeffs # [k]
-		losses *= self.weights # element-wise [k]
-		### check losses has the right dimensionality
-		self.loss = tf.reduce_mean(losses) # Average over the hyperplanes
-		
-		grads = tf.gradients(self.loss,self.point)[0]
-		grads = tf.reshape(grads,[1,m,1])
-		self.grads = scale_grads(grads)
-		
+		self.loss = calc_snf_loss_tf(self.point,self.hyperplanes,self.variances,self.weights)
+		self.grads = calc_grads_tf(self.loss,self.point)
+
 		
 class State(object):
 
@@ -108,7 +85,6 @@ class State(object):
 		self.counter = 1
 		self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
 		self.loss_and_grads(snf, state_ops, sess) # calc and set
-		
 		
 	def loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)

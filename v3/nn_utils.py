@@ -59,6 +59,20 @@ def scale_grads(x):
 		return tf.sign(x)*tf.log(tf.maximum(tf.abs(x + tf.sign(x)),1e-2))
 	return x
 	
+
+def inv_scale_grads(x):
+	if grad_scaling_method == 'full':	
+		# Operations are element-wise
+		mask = tf.to_float(tf.greater(x,0.0))
+		inv_mask = 1 - mask
+		
+		x_cond1 = tf.exp(x)-1
+		x_cond2 = tf.exp(-x)*(tf.exp(x)-1)
+
+		return x_cond1*mask + x_cond2*inv_mask
+		
+	return x	
+	
 	
 def np_inv_scale_grads(x):
 	if grad_scaling_method == 'full':	

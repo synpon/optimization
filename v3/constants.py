@@ -19,16 +19,17 @@ m = 30 # Number of dimensions
 var_size = 0.2
 
 #===# Training constants #===#
-num_iterations = 1000
 batch_size = 32 ### use
 seq_length = 10
+num_iterations = 1000
 num_SNFs = 100
-episode_length = 1000
 replay_mem_start_size = 1000
 replay_memory_max_size = 1000000
+episode_length = 1000
+discount_rate = 0.99
 
 grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[1]
 
-# Random noise is computed each time the point is processed while training the opt net
+# Random noise is added to the gradient of the SNF during training of the opt net.
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero. ### increase?
