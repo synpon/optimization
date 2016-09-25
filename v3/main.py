@@ -17,8 +17,7 @@ rm nohup.out; nohup python -u main.py -s &
 pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
 pychecker main.py
 """
-
-### grad scaling has not been inverted
+### solve NaN error in the loss after around 3000 iterations with loss weighting
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -95,7 +94,7 @@ def main():
 			replay_memory.append(state)
 			
 		if i % summary_freq == 0:
-			print "%d\t%.4f" % (i, np.mean(losses))
+			print "%d\t%.5f" % (i, np.mean(losses))
 			losses = []
 			
 	# Save model

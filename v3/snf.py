@@ -53,15 +53,17 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	losses = -tf.exp(losses) # [k]
 	var_coeffs = 1/tf.sqrt(2*variances*3.14) # [k]
 	losses *= var_coeffs # [k]
-	losses *= weights # element-wise [k] ### check dimensions
+	losses *= weights # element-wise [k]
 	
 	return tf.reduce_mean(losses) # Average over the hyperplanes 
 
 	
-def calc_grads_tf(loss,point): ### add noise
+def calc_grads_tf(loss,point):
 	grads = tf.gradients(loss,point)[0]
 	grads = tf.reshape(grads,[1,m,1])
-	return scale_grads(grads)
+	grads = scale_grads(grads)
+	grads += tf.abs(grads)*grad_noise*tf.random_uniform([1,m,1], minval=0.0, maxval=1.0)
+	return grads
 		
 		
 class StateOps: ### deprecate
@@ -88,7 +90,5 @@ class State(object):
 		
 	def loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)
-		if grad_noise > 0:
-			self.grads += np.abs(self.grads)*grad_noise*np.random.random((1,m,1))
 			
 			

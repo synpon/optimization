@@ -69,8 +69,7 @@ def inv_scale_grads(x):
 		x_cond1 = tf.exp(x)-1
 		x_cond2 = tf.exp(-x)*(tf.exp(x)-1)
 
-		return x_cond1*mask + x_cond2*inv_mask
-		
+		return x_cond1*mask + x_cond2*inv_mask		
 	return x	
 	
 	
@@ -83,8 +82,12 @@ def np_inv_scale_grads(x):
 		x_cond1 = np.exp(x)-1
 		x_cond2 = np.exp(-x)*(np.exp(x)-1)
 
-		return x_cond1*mask + x_cond2*inv_mask
-		
+		return x_cond1*mask + x_cond2*inv_mask	
 	return x
+	
+
+def tf_print(x):
+	x = tf.Print(x,[x])
+	return
 	
 	

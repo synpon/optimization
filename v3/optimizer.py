@@ -68,16 +68,14 @@ class Optimizer(object):
 			self.new_point = self.point + self.update		
 			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
 			
-			loss = tf.sign(self.snf_loss - self.new_snf_loss)
+			loss = self.snf_loss - self.new_snf_loss#tf.sign(self.snf_loss - self.new_snf_loss)
 			
 			# Weight the loss by its position in the optimisation process
 			tmp = tf.pow(discount_rate, episode_length - self.state_index)
 			w = (tmp*(1 - discount_rate))/(1 - tmp)
-			self.loss = loss### * w
+			self.loss = loss * w
 			
 			self.grads = calc_grads_tf(self.loss, self.new_point)
-			if grad_noise > 0:
-				self.grads += np.abs(self.grads)*grad_noise*np.random.random((1,m,1))
 			
 			opt = tf.train.AdamOptimizer()
 			self.train_step = opt.minimize(self.loss)
