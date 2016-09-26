@@ -3,7 +3,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-from constants import k, m, var_size, grad_noise, rnn_size, num_rnn_layers
+from constants import k, m, var_size, rnn_size, num_rnn_layers
 from nn_utils import scale_grads, np_inv_scale_grads
 
 
@@ -35,6 +35,7 @@ class SNF(object):
 	
 		
 def calc_snf_loss_tf(point,hyperplanes,variances,weights):
+	#variances = tf.maximum(variances,1e-6) # Avoid NaN errors
 	hyperplanes = tf.reshape(hyperplanes, [k,m,m])
 	hp_inv = tf.batch_matrix_inverse(hyperplanes) # [k,m,m]
 	x = tf.ones((k,m,1))
@@ -45,7 +46,7 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	D = tf.batch_matmul(point,a) - 1 # [k,1,1]
 	D = tf.reshape(D,[k])
 	norm = tf.sqrt(tf.reduce_sum(tf.square(a),reduction_indices=[1])) # [k]
-	D /= norm # [k]
+	D /= norm#tf.maximum(norm,1e-6) # [k]
 	losses = tf.abs(D) # [k]
 	
 	losses = tf.square(losses) # [k]
@@ -55,14 +56,14 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	losses *= var_coeffs # [k]
 	losses *= weights # element-wise [k]
 	
-	return tf.reduce_mean(losses) # Average over the hyperplanes 
-
+	loss = tf.reduce_mean(losses) # Average over the hyperplanes 
+	return loss
+	
 	
 def calc_grads_tf(loss,point):
 	grads = tf.gradients(loss,point)[0]
 	grads = tf.reshape(grads,[1,m,1])
 	grads = scale_grads(grads)
-	grads += tf.abs(grads)*grad_noise*tf.random_uniform([1,m,1], minval=0.0, maxval=1.0)
 	return grads
 		
 		

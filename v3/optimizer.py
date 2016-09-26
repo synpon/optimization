@@ -7,7 +7,7 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		discount_rate, episode_length, grad_noise
+		discount_rate, episode_length, loss_noise
 from snf import calc_snf_loss_tf, calc_grads_tf
 
 class Optimizer(object):
@@ -40,15 +40,13 @@ class Optimizer(object):
 				raise NotImplementedError
 			
 			# placeholder for RNN unrolling time step size.
-			self.step_size = tf.placeholder(tf.int32, [1], 'step_size')
+			self.step_size = tf.placeholder(tf.int32, [1], 'step_size') ### correct?
 			self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
 			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size], 'rnn_state')
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
-			# Unrolling LSTM up to LOCAL_T_MAX time steps.
-			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, step_size is 1.
 			output, rnn_state = rnn.dynamic_rnn(self.cell,
@@ -68,12 +66,17 @@ class Optimizer(object):
 			self.new_point = self.point + self.update		
 			self.new_snf_loss = calc_snf_loss_tf(self.new_point, self.hyperplanes, self.variances, self.weights)
 			
-			loss = self.snf_loss - self.new_snf_loss#tf.sign(self.snf_loss - self.new_snf_loss)
+			# Add loss noise - reduce__mean is only to flatten
+			self.new_snf_loss += tf.reduce_mean(tf.abs(self.new_snf_loss)*loss_noise*tf.random_uniform([1], minval=-1.0, maxval=1.0))
+			
+			#loss = self.snf_loss - self.new_snf_loss
+			# As the counters increase, large losses will get harder to achieve - using only the sign controls for this.
+			loss = tf.sign(self.snf_loss - self.new_snf_loss)
 			
 			# Weight the loss by its position in the optimisation process
 			tmp = tf.pow(discount_rate, episode_length - self.state_index)
-			w = (tmp*(1 - discount_rate))/(1 - tmp)
-			self.loss = loss * w
+			w = (tmp*(1 - discount_rate))/tf.maximum(1 - tmp,1e-6) ### ordinarily causes a NaN error around iteration 3000
+			self.loss = loss# * w
 			
 			self.grads = calc_grads_tf(self.loss, self.new_point)
 			

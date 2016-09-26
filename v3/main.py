@@ -17,7 +17,7 @@ rm nohup.out; nohup python -u main.py -s &
 pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
 pychecker main.py
 """
-### solve NaN error in the loss after around 3000 iterations with loss weighting
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -74,7 +74,8 @@ def main():
 							opt_net.initial_rnn_state: state.rnn_state,
 							opt_net.state_index: state.counter}
 							
-			loss,new_point,rnn_state,grads,_ = sess.run([opt_net.loss, 
+			loss, snf_loss, new_point, rnn_state, grads,_ = sess.run([opt_net.loss, 
+														opt_net.new_snf_loss,
 														opt_net.new_point, 
 														opt_net.rnn_state, 
 														opt_net.grads, 
@@ -82,16 +83,18 @@ def main():
 														feed_dict=feed_dict)
 			losses.append(loss)
 			
-			state.point = new_point
-			state.rnn_state = rnn_state
-			state.grads = grads
+			new_state = state
+			new_state.loss = snf_loss
+			new_state.point = new_point
+			new_state.rnn_state = rnn_state
+			new_state.grads = grads
 			
-			state.counter += 1
-			if state.counter >= episode_length:
+			new_state.counter += 1
+			if new_state.counter >= episode_length:
 				snf = random.choice(snfs)
-				state = State(snf, state_ops, sess)
+				new_state = State(snf, state_ops, sess)
 			
-			replay_memory.append(state)
+			replay_memory.append(new_state)
 			
 		if i % summary_freq == 0:
 			print "%d\t%.5f" % (i, np.mean(losses))

@@ -6,13 +6,13 @@ import tensorflow as tf
 from constants import grad_scaling_method
 
 
-def weight_matrix(num_in, num_out):
-	with tf.variable_scope("weight"):
+def weight_matrix(num_in, num_out): ### use xavier_initializer
+	with tf.variable_scope("weight"): 
 		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		
-def bias_vector(num_in, num_out):
+def bias_vector(num_in, num_out): ### use xavier_initializer
 	with tf.variable_scope("bias"):
 		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
