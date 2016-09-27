@@ -12,7 +12,8 @@ from constants import summaries_dir, save_path
 
 sess = tf.Session()
 	
-opt_net = Optimizer()
+with tf.variable_scope("opt1"):
+	opt_net = Optimizer()
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())

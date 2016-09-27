@@ -17,7 +17,7 @@ rm nohup.out; nohup python -u main.py -s &
 pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
 pychecker main.py
 """
-
+### Check the signs are correct
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -68,51 +68,55 @@ def main():
 		state = random.choice(replay_memory)
 		snf = state.snf
 		
-		#for j in range(seq_length): ### necessary? causes issues from correlation?
-		#===# Generate a new state #===#
-		feed_dict = {opt_net2.point: state.point, 
-						opt_net2.snf_loss: [state.loss],
-						opt_net2.variances: snf.variances, 
-						opt_net2.weights: snf.weights, 
-						opt_net2.hyperplanes: snf.hyperplanes, 
-						opt_net2.input_grads: state.grads,
-						opt_net2.step_size: np.ones([m]),
-						opt_net2.initial_rnn_state: state.rnn_state,
-						opt_net2.state_index: state.counter}
-						
-		snf_loss, new_point, rnn_state, grads = sess.run([opt_net2.new_snf_loss,
-													opt_net2.new_point, 
-													opt_net2.rnn_state, 
-													opt_net2.grads], 
-													feed_dict=feed_dict)
-		
-		new_state = state
-		new_state.loss = snf_loss
-		new_state.point = new_point
-		new_state.rnn_state = rnn_state
-		new_state.grads = grads
-		
-		new_state.counter += 1
-		if new_state.counter >= episode_length:
+		if state.counter >= episode_length:
 			snf = random.choice(snfs)
-			new_state = State(snf, state_ops, sess)
+			state = State(snf, state_ops, sess)
 		
-		replay_memory.append(new_state)
+		#===# Generate states #===#
+		states_seq = []
 		
+		for j in range(seq_length):		
+			feed_dict = {opt_net2.point: state.point, 
+							opt_net2.snf_loss: [state.loss],
+							opt_net2.variances: snf.variances, 
+							opt_net2.weights: snf.weights, 
+							opt_net2.hyperplanes: snf.hyperplanes, 
+							opt_net2.input_grads: state.grads,
+							opt_net2.step_size: np.ones([m]),
+							opt_net2.initial_rnn_state: state.rnn_state,
+							opt_net2.state_index: state.counter}
+							
+			snf_loss, new_point, rnn_state, grads = sess.run([opt_net2.new_snf_loss,
+														opt_net2.new_point, 
+														opt_net2.rnn_state, 
+														opt_net2.grads], 
+														feed_dict=feed_dict)
+			
+			state.loss = snf_loss
+			state.point = new_point
+			state.rnn_state = rnn_state
+			state.grads = grads
+			state.counter += 1
+			
+			replay_memory.append(state)
+			states_seq.append(state)
+
 		#===# Train the optimizer #===#
-		state = random.choice(replay_memory)
-		snf = state.snf	
+		points = [state.point for state in states_seq]
+		snf_losses = [state.loss for state in states_seq]
+		grads = [state.point for state in states_seq]
+		counters = [state.point for state in states_seq]
 		
-		feed_dict = {opt_net.point: state.point, 
-						opt_net.snf_loss: [state.loss],
-						opt_net.variances: snf.variances, 
+		feed_dict = {opt_net.points: points, 
+						opt_net.snf_losses: snf_losses,
+						opt_net.input_grads: grads,
+						opt_net.counters: counters,
+						opt_net.variances: snf.variances,
 						opt_net.weights: snf.weights, 
 						opt_net.hyperplanes: snf.hyperplanes, 
-						opt_net.input_grads: state.grads,
-						opt_net.step_size: np.ones([m]),
-						opt_net.initial_rnn_state: state.rnn_state,
-						opt_net.state_index: state.counter}
+						opt_net.step_size: np.ones([m])}
 						
+		# The RNN state is initialised from a zero-matrix
 		loss,_ = sess.run([opt_net.loss, opt_net.train_step], feed_dict=feed_dict)
 		losses.append(loss)		
 		
@@ -130,7 +134,7 @@ def main():
 			
 	# Save model
 	if args.save_model:
-		vars_to_save = [j for j in tf.trainable_variables() if 'opt2' in j.name]
+		vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
 		saver = tf.train.Saver(vars_to_save)
 		saver.save(sess, save_path)
 		print "Model saved"
