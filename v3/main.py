@@ -34,10 +34,10 @@ def main():
 	state_ops = StateOps()
 	
 	with tf.variable_scope("opt1"):
-		opt_net = Optimizer()
+		opt_net = Optimizer(seq_length)
 		
 	with tf.variable_scope("opt2"):
-		opt_net2 = Optimizer() # Only used for generating new states
+		opt_net2 = Optimizer(1) # Only used for generating new states
 	
 	snfs = []
 	# Generate the set of SNFs
@@ -75,26 +75,24 @@ def main():
 		#===# Generate states #===#
 		states_seq = []
 		
-		for j in range(seq_length):		
-			feed_dict = {opt_net2.point: state.point, 
-							opt_net2.snf_loss: [state.loss],
+		# For loop is necessary since all the points are taken as input, not computed internally
+		for j in range(seq_length):	
+			feed_dict = {opt_net2.points: [state.point], 
+							opt_net2.snf_losses: [state.loss],
 							opt_net2.variances: snf.variances, 
 							opt_net2.weights: snf.weights, 
 							opt_net2.hyperplanes: snf.hyperplanes, 
 							opt_net2.input_grads: state.grads,
-							opt_net2.step_size: np.ones([m]),
-							opt_net2.initial_rnn_state: state.rnn_state,
-							opt_net2.state_index: state.counter}
-							
-			snf_loss, new_point, rnn_state, grads = sess.run([opt_net2.new_snf_loss,
-														opt_net2.new_point, 
-														opt_net2.rnn_state, 
-														opt_net2.grads], 
-														feed_dict=feed_dict)
+							opt_net2.initial_rnn_state: state.rnn_state}
 			
+			# rnn_state is omitted - no need to fix this
+			snf_loss, new_point, grads = sess.run([opt_net2.snf_losses_output, ### returns entirely None values
+														opt_net2.points_output,
+														opt_net2.grads_output], 
+														feed_dict=feed_dict)
+
 			state.loss = snf_loss
 			state.point = new_point
-			state.rnn_state = rnn_state
 			state.grads = grads
 			state.counter += 1
 			
@@ -104,8 +102,8 @@ def main():
 		#===# Train the optimizer #===#
 		points = [state.point for state in states_seq]
 		snf_losses = [state.loss for state in states_seq]
-		grads = [state.point for state in states_seq]
-		counters = [state.point for state in states_seq]
+		grads = [np.reshape(state.grads,[m,1]) for state in states_seq]
+		counters = [state.counter for state in states_seq]
 		
 		feed_dict = {opt_net.points: points, 
 						opt_net.snf_losses: snf_losses,
@@ -113,11 +111,10 @@ def main():
 						opt_net.counters: counters,
 						opt_net.variances: snf.variances,
 						opt_net.weights: snf.weights, 
-						opt_net.hyperplanes: snf.hyperplanes, 
-						opt_net.step_size: np.ones([m])}
+						opt_net.hyperplanes: snf.hyperplanes}
 						
 		# The RNN state is initialised from a zero-matrix
-		loss,_ = sess.run([opt_net.loss, opt_net.train_step], feed_dict=feed_dict)
+		loss,_ = sess.run([opt_net.total_loss, opt_net.train_step], feed_dict=feed_dict)
 		losses.append(loss)		
 		
 		# Synchronize optimizers

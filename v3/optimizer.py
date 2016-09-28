@@ -7,12 +7,14 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		discount_rate, episode_length, loss_noise, seq_length
+		discount_rate, episode_length, loss_noise
 from snf import calc_snf_loss_tf, calc_grads_tf
+from nn_utils import tf_print
+
 
 class Optimizer(object):
 
-	def __init__(self):
+	def __init__(self, seq_length):
 		# Input
 		self.points = tf.placeholder(tf.float32, [seq_length,m,1], 'points') # Used to calculate loss only
 		self.snf_losses = tf.placeholder(tf.float32, [seq_length], 'snf_losses')
@@ -21,17 +23,14 @@ class Optimizer(object):
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
-		self.step_size = tf.placeholder(tf.int32, [1], 'step_size') ### correct? # placeholder for RNN unrolling time step size.
-		### Have seq_length as an argument for compatibility with compare
 		
 		# initial_rnn_state is given during evaluation but not during training
 		self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
 		
-		n_dims = tf.shape(self.input_grads)[2]
+		n_dims = tf.shape(self.input_grads)[1]
 		
 		points = tf.split(0, seq_length, self.points)
 		snf_losses = tf.split(0, seq_length, self.snf_losses)
-		input_grads = tf.split(0, seq_length, self.input_grads)
 		counters = tf.split(0, seq_length, self.counters)
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
@@ -47,42 +46,41 @@ class Optimizer(object):
 
 			if rnn_type == 'lstm':
 				raise NotImplementedError
-		
-			self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
-			rnn_state = self.initial_rnn_state
-			
-			grads = []
-			for g in input_grads:
-				g = tf.squeeze(g) # Remove the dimension of size 1
-				g.set_shape([None,1]) # Necessary for running dynamic_rnn
-				grads.append(g)
-			
-			# Unrolling step size is applied via self.step_size placeholder.
-			# When forward propagating, step_size is 1.
 			outputs, rnn_state = rnn.dynamic_rnn(self.cell,
-									grads,
-									initial_state = rnn_state,
-									sequence_length = self.step_size,
-									time_major = False)		
+									self.input_grads,
+									initial_state = self.initial_rnn_state,
+									sequence_length = seq_length*tf.ones(tf.pack([n_dims])),
+									time_major = True)
+			
+			self.rnn_state_output = rnn_state
 			
 			self.total_loss = 0		
 			outputs = tf.split(0, seq_length, outputs)
 			
+			snf_losses_output = []
+			points_output = []
+			grads_output = []
+			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
-				output = tf.reshape(output,tf.pack([self.step_size[0],n_dims,rnn_size]))
+				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size])) ### check
 			
 				update = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
 				update = inv_scale_grads(update)
 				
-				new_point = tf.squeeze(point) + update		
+				new_point = update + tf.squeeze(point, squeeze_dims=[0]) ### check squeeze_dims value
+				
+				points_output.append(new_point)	
+				
 				new_snf_loss = calc_snf_loss_tf(new_point, self.hyperplanes, self.variances, self.weights)
 				
 				# Add loss noise - reduce__mean is only to flatten
 				new_snf_loss += tf.reduce_mean(tf.abs(new_snf_loss)*loss_noise*tf.random_uniform([1], minval=-1.0, maxval=1.0))
+				snf_losses_output.append(new_snf_loss) ### without noise?
 				
-				#grads = calc_grads_tf(loss, new_point) ###
+				g = calc_grads_tf(new_snf_loss, new_point) ### check
+				grads_output.append(g)
 				
 				#loss = self.snf_loss - self.new_snf_loss
 				loss = tf.sign(tf.squeeze(snf_loss) - new_snf_loss)
@@ -91,6 +89,11 @@ class Optimizer(object):
 				tmp = tf.pow(discount_rate, episode_length - tf.squeeze(counter))
 				w = (tmp*(1 - discount_rate))/tf.maximum(1 - tmp,1e-6) ### ordinarily causes a NaN error around iteration 3000
 				self.total_loss += loss * w
+				
+			# Cannot return lists as they are
+			self.snf_losses_output = snf_losses_output[0] ### Indexing is admissible in all contexts?
+			self.points_output = points_output[0]
+			self.grads_output = grads_output[0]
 			
 			opt = tf.train.AdamOptimizer()
 			self.train_step = opt.minimize(self.total_loss)

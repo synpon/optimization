@@ -5,7 +5,7 @@ import numpy as np
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
-summary_freq = 1000
+summary_freq = 10
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru']
