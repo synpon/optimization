@@ -17,7 +17,7 @@ rm nohup.out; nohup python -u main.py -s &
 pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
 pychecker main.py
 """
-### Check the signs are correct
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -34,10 +34,10 @@ def main():
 	state_ops = StateOps()
 	
 	with tf.variable_scope("opt1"):
-		opt_net = Optimizer(seq_length)
+		opt_net = Optimizer(seq_length,"opt1")
 		
 	with tf.variable_scope("opt2"):
-		opt_net2 = Optimizer(1) # Only used for generating new states
+		opt_net2 = Optimizer(1,"opt2") # Only used for generating new states
 	
 	snfs = []
 	# Generate the set of SNFs
@@ -76,6 +76,7 @@ def main():
 		states_seq = []
 		
 		# For loop is necessary since all the points are taken as input, not computed internally
+		
 		for j in range(seq_length):	
 			feed_dict = {opt_net2.points: [state.point], 
 							opt_net2.snf_losses: [state.loss],
@@ -86,19 +87,19 @@ def main():
 							opt_net2.initial_rnn_state: state.rnn_state}
 			
 			# rnn_state is omitted - no need to fix this
-			snf_loss, new_point, grads = sess.run([opt_net2.snf_losses_output, ### returns entirely None values
+			snf_loss, new_point, grads = sess.run([opt_net2.snf_losses_output,
 														opt_net2.points_output,
 														opt_net2.grads_output], 
 														feed_dict=feed_dict)
-
+			
 			state.loss = snf_loss
 			state.point = new_point
 			state.grads = grads
 			state.counter += 1
 			
-			replay_memory.append(state)
+			###replay_memory.append(state)
 			states_seq.append(state)
-
+		
 		#===# Train the optimizer #===#
 		points = [state.point for state in states_seq]
 		snf_losses = [state.loss for state in states_seq]
@@ -118,12 +119,12 @@ def main():
 		losses.append(loss)		
 		
 		# Synchronize optimizers
-		if i & net_sync_freq == 0 and i > 0:
-			opt1_vars = [j for j in tf.trainable_variables() if 'opt1' in j.name]
-			opt2_vars = [j for j in tf.trainable_variables() if 'opt2' in j.name]
-			for v1,v2 in zip(opt1_vars,opt2_vars):
+		#if i & net_sync_freq == 0 and i > 0:
+		#	opt1_vars = [j for j in tf.trainable_variables() if 'opt1' in j.name]
+		#	opt2_vars = [j for j in tf.trainable_variables() if 'opt2' in j.name]
+		#	for v1,v2 in zip(opt1_vars,opt2_vars):
 				# The net which generates states copies the variables of the net which is trained.
-				v2.assign(v1)
+		#		v2.assign(v1)
 			
 		if i % summary_freq == 0 and i > 0:
 			print "%d\t%.5f" % (i, np.mean(losses))

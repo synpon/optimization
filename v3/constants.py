@@ -5,7 +5,7 @@ import numpy as np
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
-summary_freq = 10
+summary_freq = 1000
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru']
@@ -19,18 +19,18 @@ m = 30 # Number of dimensions
 var_size = 0.2
 
 #===# Training constants #===#
-batch_size = 32 ### use
-seq_length = 10 # 20
-num_iterations = 5000
-num_SNFs = 100
-replay_mem_start_size = 500 # DQN: 50000
+batch_size = 32 ### use - may be hard as the dimensionality has taken the place of the batch size
+seq_length = 3 # 20
+num_iterations = 50000
+num_SNFs = 1000
+replay_mem_start_size = 5000 # DQN: 50000
 replay_memory_max_size = 100000 # DQN: 1000000
 episode_length = 100
 discount_rate = 0.9995
-net_sync_freq = 1 # DQN: 10000
+net_sync_freq = 100 # DQN: 10000
 
 grad_scaling_methods = ['none','full']
-grad_scaling_method = grad_scaling_methods[1]
+grad_scaling_method = grad_scaling_methods[0]
 
 # Random noise is added to the loss of the SNF during training of the opt net.
 loss_noise = 0#0.75

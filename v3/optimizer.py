@@ -14,7 +14,7 @@ from nn_utils import tf_print
 
 class Optimizer(object):
 
-	def __init__(self, seq_length):
+	def __init__(self, seq_length,scope_name):
 		# Input
 		self.points = tf.placeholder(tf.float32, [seq_length,m,1], 'points') # Used to calculate loss only
 		self.snf_losses = tf.placeholder(tf.float32, [seq_length], 'snf_losses')
@@ -63,13 +63,13 @@ class Optimizer(object):
 			grads_output = []
 			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
-				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size])) ### check
+				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size]))
 			
 				update = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
 				update = inv_scale_grads(update)
 				
-				new_point = update + tf.squeeze(point, squeeze_dims=[0]) ### check squeeze_dims value
+				new_point = update + tf.squeeze(point, squeeze_dims=[0])
 				
 				points_output.append(new_point)	
 				
@@ -79,26 +79,35 @@ class Optimizer(object):
 				new_snf_loss += tf.reduce_mean(tf.abs(new_snf_loss)*loss_noise*tf.random_uniform([1], minval=-1.0, maxval=1.0))
 				snf_losses_output.append(new_snf_loss) ### without noise?
 				
-				g = calc_grads_tf(new_snf_loss, new_point) ### check
+				g = calc_grads_tf(new_snf_loss, new_point)
 				grads_output.append(g)
 				
-				#loss = self.snf_loss - self.new_snf_loss
-				loss = tf.sign(tf.squeeze(snf_loss) - new_snf_loss)
+				# Improvement: tf.sign(2 - 3) = tf.sign(-1) = -1 (small loss)
+				#loss = self.new_snf_loss - self.snf_loss
+				loss = tf.sign(new_snf_loss - tf.squeeze(snf_loss))
 				
 				# Weight the loss by its position in the optimisation process
 				tmp = tf.pow(discount_rate, episode_length - tf.squeeze(counter))
-				w = (tmp*(1 - discount_rate))/tf.maximum(1 - tmp,1e-6) ### ordinarily causes a NaN error around iteration 3000
-				self.total_loss += loss * w
+				w = (tmp*(1 - discount_rate))/tf.maximum(1 - tmp,1e-6)
+				self.total_loss += loss### * w
+				
+			self.total_loss /= seq_length
 				
 			# Cannot return lists as they are
-			self.snf_losses_output = snf_losses_output[0] ### Indexing is admissible in all contexts?
+			# Indexing is admissible as these 3 variables only need to be returned when seq_length = 1
+			self.snf_losses_output = snf_losses_output[0]
 			self.points_output = points_output[0]
 			self.grads_output = grads_output[0]
 			
 			opt = tf.train.AdamOptimizer()
-			self.train_step = opt.minimize(self.total_loss)
-			
+			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
+			gvs = opt.compute_gradients(self.total_loss, vars)
+			#gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gvs]
+			#gvs = [(tf.clip_by_norm(grad, 1.0), var) for grad, var in gvs]
+			#self.train_step = opt.minimize(self.total_loss)
+			self.train_step = opt.apply_gradients(gvs)
 
+			
 	# Update the parameters of another network (eg an MLP)
 	def update_params(self, vars, h):
 		total = 0
