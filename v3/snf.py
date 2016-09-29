@@ -66,7 +66,12 @@ def calc_grads_tf(loss,point):
 	return grads
 		
 		
-class StateOps: ### deprecate
+class StateOps:
+	"""
+	The definition of this graph could be included within State but making it separate means 
+	the graph only has to be created once, as opposed to once every time an instance of State 
+	is created. This results in a 100-1000x speed-up.
+	"""
 
 	def __init__(self): 
 		#===# Graph to compute the loss and gradients for a single point #===#
@@ -95,5 +100,5 @@ class State(object):
 		
 	def loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)
-			
-			
+		
+		

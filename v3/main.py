@@ -30,7 +30,6 @@ def main():
 		print "Model will not be saved"
 		
 	sess = tf.Session()
-		
 	state_ops = StateOps()
 	
 	with tf.variable_scope("opt1"):
@@ -51,11 +50,11 @@ def main():
 	
 	# Add some initial states to the replay memory
 	for i in range(replay_mem_start_size):
-	    snf = random.choice(snfs)
-		
+		snf = random.choice(snfs)
+
 		# Initializer computes a random point and the SNF loss
-	    state = State(snf, state_ops, sess)
-	    replay_memory.append(state)
+		state = State(snf, state_ops, sess)
+		replay_memory.append(state)
 	
 	init = tf.initialize_all_variables()
 	sess.run(init)

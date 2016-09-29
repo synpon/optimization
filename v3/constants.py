@@ -21,7 +21,7 @@ var_size = 0.2
 #===# Training constants #===#
 batch_size = 32 ### use
 seq_length = 3 # 20
-num_iterations = 1000
+num_iterations = 10000
 num_SNFs = 1000
 replay_mem_start_size = 5000 # DQN: 50000
 replay_memory_max_size = 100000 # DQN: 1000000
