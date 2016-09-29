@@ -27,6 +27,9 @@ class Optimizer(object):
 		# initial_rnn_state is given during evaluation but not during training
 		self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
 		
+		if rnn_type == 'lstm':
+			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, 2*num_rnn_layers*rnn_size]), shape=[None, 2*num_rnn_layers*rnn_size])
+		
 		n_dims = tf.shape(self.input_grads)[1]
 		
 		points = tf.split(0, seq_length, self.points)
@@ -36,16 +39,13 @@ class Optimizer(object):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			if rnn_type == 'rnn':
-				cell = rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
+				cell = rnn_cell.BasicRNNCell(rnn_size)
 			elif rnn_type == 'gru':
 				cell = rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
 				cell = rnn_cell.BasicLSTMCell(rnn_size)
 				
 			self.cell = rnn_cell.MultiRNNCell([cell] * num_rnn_layers)
-
-			if rnn_type == 'lstm':
-				raise NotImplementedError
 			
 			outputs, rnn_state = rnn.dynamic_rnn(self.cell,
 									self.input_grads,

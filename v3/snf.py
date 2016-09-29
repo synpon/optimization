@@ -3,7 +3,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-from constants import k, m, var_size, rnn_size, num_rnn_layers
+from constants import k, m, var_size, rnn_size, num_rnn_layers, rnn_type
 from nn_utils import scale_grads, np_inv_scale_grads
 
 
@@ -85,8 +85,13 @@ class State(object):
 		self.snf = snf
 		self.point = snf.gen_points(1)
 		self.counter = 1
-		self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
 		self.loss_and_grads(snf, state_ops, sess) # calc and set
+		
+		if rnn_type == 'lstm':
+			self.rnn_state = np.zeros([m,2*rnn_size*num_rnn_layers])
+		else:
+			self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
+		
 		
 	def loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)

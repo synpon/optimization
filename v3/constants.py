@@ -8,7 +8,7 @@ save_path = 'models/model.ckpt'
 summary_freq = 1000
 
 #===# Opt net constants #===#
-rnn_types = ['rnn','gru']
+rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
 rnn_size = 4
 num_rnn_layers = 1

@@ -190,7 +190,7 @@ class BasicRNNCell(RNNCell):
 
   def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._activation = activation
 
@@ -214,7 +214,7 @@ class GRUCell(RNNCell):
 
   def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._activation = activation
 
@@ -282,11 +282,11 @@ class BasicLSTMCell(RNNCell):
       activation: Activation function of the inner states.
     """
     if not state_is_tuple:
-      logging.warn(
+      tf.logging.warn(
           "%s: Using a concatenated state is slower and will soon be "
           "deprecated.  Use state_is_tuple=True." % self)
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._forget_bias = forget_bias
     self._state_is_tuple = state_is_tuple
@@ -414,11 +414,11 @@ class LSTMCell(RNNCell):
       activation: Activation function of the inner states.
     """
     if not state_is_tuple:
-      logging.warn(
+      tf.logging.warn(
           "%s: Using a concatenated state is slower and will soon be "
           "deprecated.  Use state_is_tuple=True." % self)
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._use_peepholes = use_peepholes
     self._cell_clip = cell_clip
@@ -603,7 +603,7 @@ class InputProjectionWrapper(RNNCell):
       TypeError: if cell is not an RNNCell.
     """
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     if not isinstance(cell, RNNCell):
       raise TypeError("The parameter cell is not RNNCell.")
     self._cell = cell
