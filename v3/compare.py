@@ -13,7 +13,7 @@ from constants import summaries_dir, save_path
 sess = tf.Session()
 	
 with tf.variable_scope("opt1"):
-	opt_net = Optimizer()
+	opt_net = Optimizer(1,"opt1")
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
@@ -71,9 +71,8 @@ for i in range(10):
 		
 		# Compute update
 		feed_dict = {net.opt_net.input_grads: grads, 
-				net.opt_net.initial_rnn_state: rnn_state, 
-				net.opt_net.step_size: np.ones([net.num_params])}
-		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state], feed_dict=feed_dict)
+				net.opt_net.initial_rnn_state: rnn_state}
+		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_output], feed_dict=feed_dict)
 		
 		# Update MLP parameters
 		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update}) ### output summary from run

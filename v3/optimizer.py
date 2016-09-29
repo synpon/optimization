@@ -67,9 +67,9 @@ class Optimizer(object):
 			
 				update = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
-				update = inv_scale_grads(update)
+				self.update = inv_scale_grads(update) ### Effect of this during comparison (were grads scaled to begin with?)
 				
-				new_point = update + tf.squeeze(point, squeeze_dims=[0])
+				new_point = self.update + tf.squeeze(point, squeeze_dims=[0])
 				
 				points_output.append(new_point)	
 				
