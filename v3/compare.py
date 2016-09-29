@@ -10,6 +10,11 @@ from cnn import CNN
 from optimizer import Optimizer
 from constants import summaries_dir, save_path
 
+"""
+tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
+http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
+"""
+
 sess = tf.Session()
 	
 with tf.variable_scope("opt1"):
@@ -58,7 +63,7 @@ accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: m
 print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
-for i in range(10):
+for i in range(1):
 	sess.run(net.init) # Reset parameters of net to be trained
 
 	rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
@@ -67,17 +72,17 @@ for i in range(10):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
 		
 		# Compute gradients
-		grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+		summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
 		
 		# Compute update
-		feed_dict = {net.opt_net.input_grads: grads, 
-				net.opt_net.initial_rnn_state: rnn_state}
+		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
+					net.opt_net.initial_rnn_state: rnn_state}
 		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_output], feed_dict=feed_dict)
 		
 		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update}) ### output summary from run
-		
+		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
 		opt_net_writer.add_summary(summary,j)
+		
 	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 	print "Opt net accuracy: %f" % accuracy
 opt_net_writer.close()
