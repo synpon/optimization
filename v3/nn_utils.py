@@ -7,13 +7,13 @@ from constants import grad_scaling_method
 
 
 def xavier_initializer(dims):
-	d = np.sqrt(6.0)/np.sqrt(sum(dims))
+	d = np.sqrt(6.0)/np.sqrt(sum(dims)) ###
 	return tf.random_uniform_initializer(minval=-d, maxval=d)
 
 
 def weight_matrix(num_in, num_out): ### use xavier_initializer
 	with tf.variable_scope("weight"):
-		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
+		d = np.sqrt(0.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		

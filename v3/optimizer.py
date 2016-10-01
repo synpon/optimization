@@ -83,8 +83,8 @@ class Optimizer(object):
 				grads_output.append(g)
 				
 				# Improvement: tf.sign(2 - 3) = tf.sign(-1) = -1 (small loss)
-				#loss = self.new_snf_loss - self.snf_loss
-				loss = tf.sign(new_snf_loss - tf.squeeze(snf_loss))
+				loss = new_snf_loss - snf_loss
+				#loss = tf.tanh(new_snf_loss - tf.squeeze(snf_loss))
 				
 				# Weight the loss by its position in the optimisation process
 				tmp = tf.pow(discount_rate, episode_length - tf.squeeze(counter))

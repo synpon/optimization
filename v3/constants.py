@@ -9,8 +9,8 @@ summary_freq = 1000
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[1]
-rnn_size = 4
+rnn_type = rnn_types[0]
+rnn_size = 1
 num_rnn_layers = 1
 
 #===# SNF constants #===#
@@ -20,7 +20,7 @@ var_size = 0.2
 
 #===# Training constants #===#
 batch_size = 32 ### use
-seq_length = 3 # 20
+seq_length = 1 # 20
 num_iterations = 10000
 num_SNFs = 1000
 replay_mem_start_size = 5000 # DQN: 50000
