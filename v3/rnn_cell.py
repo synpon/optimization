@@ -885,10 +885,10 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
     #rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0)
-    #W_m = tf.get_variable("W_m", [total_arg_size, output_size], initializer=xavier_initializer([total_arg_size, output_size]))
-    #W_p = tf.get_variable("W_p", [total_arg_size, output_size], initializer=xavier_initializer([total_arg_size, output_size]))
+    #W_m = tf.get_variable("W_m", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
+    #W_p = tf.get_variable("W_p", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
     # Element-wise multiplication
-    #matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
+    #matrix = tf.mul(tf.square(W_m),(tf.nn.tanh(rand - W_p)))
     matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)

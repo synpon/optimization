@@ -82,9 +82,8 @@ class Optimizer(object):
 				g = calc_grads_tf(new_snf_loss, new_point)
 				grads_output.append(g)
 				
-				# Improvement: tf.sign(2 - 3) = tf.sign(-1) = -1 (small loss)
+				# Improvement: 2 - 3 = -1 (small loss)
 				loss = new_snf_loss - snf_loss
-				#loss = tf.tanh(new_snf_loss - tf.squeeze(snf_loss))
 				
 				# Weight the loss by its position in the optimisation process
 				tmp = tf.pow(discount_rate, episode_length - tf.squeeze(counter))
@@ -102,7 +101,7 @@ class Optimizer(object):
 			opt = tf.train.AdamOptimizer()
 			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
 			gvs = opt.compute_gradients(self.total_loss, vars)
-			#gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gvs]
+			gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gvs]
 			#gvs = [(tf.clip_by_norm(grad, 1.0), var) for grad, var in gvs]
 			#self.train_step = opt.minimize(self.total_loss)
 			self.train_step = opt.apply_gradients(gvs)

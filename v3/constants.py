@@ -9,7 +9,7 @@ summary_freq = 1000
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[0]
+rnn_type = rnn_types[2]
 rnn_size = 1
 num_rnn_layers = 1
 
