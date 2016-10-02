@@ -51,7 +51,7 @@ class Optimizer(object):
 			outputs, rnn_state = rnn.dynamic_rnn(self.cell,
 									self.input_grads,
 									initial_state = self.initial_rnn_state,
-									sequence_length = seq_length*tf.ones(tf.pack([n_dims])),
+									#sequence_length = seq_length*tf.ones(tf.pack([n_dims])),
 									time_major = True)
 			
 			self.rnn_state_output = rnn_state
@@ -101,7 +101,7 @@ class Optimizer(object):
 			self.grads_output = grads_output[0]
 			
 			#===# Model training #===#
-			opt = tf.train.AdamOptimizer()
+			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
 			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
 			
 			gvs = opt.compute_gradients(self.total_loss, vars)

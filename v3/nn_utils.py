@@ -7,19 +7,20 @@ from constants import grad_scaling_method
 
 
 def xavier_initializer(dims):
-	d = np.sqrt(6.0)/np.sqrt(sum(dims)) ###
+	d = np.sqrt(6.0)/np.sqrt(sum(dims))
 	return tf.random_uniform_initializer(minval=-d, maxval=d)
 
 
-def weight_matrix(num_in, num_out): ### use xavier_initializer
+def weight_matrix(num_in, num_out):
 	with tf.variable_scope("weight"):
-		d = np.sqrt(0.0)/np.sqrt(num_in+num_out)
+		# Uses 1 rather than 6 as the fc_layer3 does not have an activation function
+		d = np.sqrt(1.0)/np.sqrt(num_in+num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		
-def bias_vector(num_in, num_out): ### use xavier_initializer
+def bias_vector(num_in, num_out):
 	with tf.variable_scope("bias"):
-		d = np.sqrt(6.0)/np.sqrt(num_in+num_out)
+		d = np.sqrt(1.0)/np.sqrt(num_out)
 		return tf.Variable(tf.random_uniform(shape=[num_out], minval=-d, maxval=d))
 
 		
@@ -31,8 +32,8 @@ def fc_layer3(layer_in, num_in, num_out, activation_fn):
 	W = tf.reshape(W,[1,num_in,num_out])
 	W = tf.tile(W,tf.pack([batch_size,1,1]))
 	
-	b = bias_vector(num_in, num_out)
-	out = tf.batch_matmul(layer_in, W) + b
+	#b = bias_vector(num_in, num_out)
+	out = tf.batch_matmul(layer_in, W)# + b
 	if activation_fn != None:
 		out = activation_fn(out)
 		

@@ -127,14 +127,16 @@ def main():
 		loss = np.mean(batch_losses)
 		losses.append(loss)
 		
-		total_grads = batch_grads[0] ### why are so many of the grads always zero?
+		# Gradients using the RNN hidden state are zero when seq_length = 1
+		total_grads = batch_grads[0]
 		
 		for j in range(1,batch_size):
 			for k in range(len(batch_grads[j])):
 				total_grads[k] += batch_grads[j][k]
 		
 		total_grads = [j/batch_size for j in total_grads]
-		
+		#print total_grads
+		#print "--------"
 		#===# Train the optimizer #===#	
 		# By the derivative sum rule, the average of the derivatives (calculated here)
 		# is identical to the derivative of the average (the usual method).
