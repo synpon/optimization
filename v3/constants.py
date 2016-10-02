@@ -5,11 +5,11 @@ import numpy as np
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
-summary_freq = 1000
+summary_freq = 20
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[2]
+rnn_type = rnn_types[1]
 rnn_size = 1
 num_rnn_layers = 1
 
@@ -19,7 +19,7 @@ m = 30 # Number of dimensions
 var_size = 0.2
 
 #===# Training constants #===#
-batch_size = 32 ### use
+batch_size = 50
 seq_length = 1 # 20
 num_iterations = 10000
 num_SNFs = 1000

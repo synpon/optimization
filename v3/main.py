@@ -63,59 +63,86 @@ def main():
 
 	# Training loop
 	for i in range(num_iterations):
-	    # Retrieve a starting point from the replay memory
-		state = random.choice(replay_memory)
-		snf = state.snf
+		batch_losses = []
+		batch_grads = []
 		
-		if state.counter >= episode_length:
-			snf = random.choice(snfs)
-			state = State(snf, state_ops, sess)
-		
-		#===# Generate states #===#
-		states_seq = []
-		
-		# For loop is necessary since all the points are taken as input, not computed internally
-		
-		for j in range(seq_length):	
-			feed_dict = {opt_net2.points: [state.point], 
-							opt_net2.snf_losses: [state.loss],
-							opt_net2.variances: snf.variances, 
-							opt_net2.weights: snf.weights, 
-							opt_net2.hyperplanes: snf.hyperplanes, 
-							opt_net2.input_grads: state.grads,
-							opt_net2.initial_rnn_state: state.rnn_state}
+		for j in range(batch_size):
+			# Retrieve a starting point from the replay memory
+			state = random.choice(replay_memory)
+			snf = state.snf
 			
-			# rnn_state is omitted - no need to fix this
-			snf_loss, new_point, grads = sess.run([opt_net2.snf_losses_output,
-														opt_net2.points_output,
-														opt_net2.grads_output], 
-														feed_dict=feed_dict)
+			if state.counter >= episode_length:
+				snf = random.choice(snfs)
+				state = State(snf, state_ops, sess)
 			
-			state.loss = snf_loss
-			state.point = new_point
-			state.grads = grads
-			state.counter += 1
+			#===# Generate states #===#
+			states_seq = []
 			
-			###replay_memory.append(state)
-			states_seq.append(state)
+			# For loop is necessary since all the points are taken as input, not computed internally
+			
+			for k in range(seq_length):	
+				feed_dict = {opt_net2.points: [state.point], 
+								opt_net2.snf_losses: [state.loss],
+								opt_net2.variances: snf.variances, 
+								opt_net2.weights: snf.weights, 
+								opt_net2.hyperplanes: snf.hyperplanes, 
+								opt_net2.input_grads: state.grads,
+								opt_net2.initial_rnn_state: state.rnn_state}
+				
+				# rnn_state is omitted - no need to fix this
+				snf_loss, new_point, grads = sess.run([opt_net2.snf_losses_output,
+															opt_net2.points_output,
+															opt_net2.grads_output], 
+															feed_dict=feed_dict)
+				
+				state.loss = snf_loss
+				state.point = new_point
+				state.grads = grads
+				state.counter += 1
+				
+				###replay_memory.append(state)
+				states_seq.append(state)
+				
+			#===# Calculate loss for the optimizer #===#
+			# The RNN state is initialised from a zero-matrix
+			points = [state.point for state in states_seq]
+			snf_losses = [state.loss for state in states_seq]
+			grads = [np.reshape(state.grads,[m,1]) for state in states_seq]
+			counters = [state.counter for state in states_seq]
+			
+			feed_dict = {opt_net.points: points, 
+							opt_net.snf_losses: snf_losses,
+							opt_net.input_grads: grads,
+							opt_net.counters: counters,
+							opt_net.variances: snf.variances,
+							opt_net.weights: snf.weights, 
+							opt_net.hyperplanes: snf.hyperplanes}
+									
+			res = sess.run([opt_net.total_loss] + [g for g,v in opt_net.gvs], feed_dict=feed_dict)
+			loss = res[0]
+			grads_out = res[1:]
+			batch_losses.append(loss)
+			batch_grads.append(grads_out)
 		
-		#===# Train the optimizer #===#
-		points = [state.point for state in states_seq]
-		snf_losses = [state.loss for state in states_seq]
-		grads = [np.reshape(state.grads,[m,1]) for state in states_seq]
-		counters = [state.counter for state in states_seq]
+		loss = np.mean(batch_losses)
+		losses.append(loss)
 		
-		feed_dict = {opt_net.points: points, 
-						opt_net.snf_losses: snf_losses,
-						opt_net.input_grads: grads,
-						opt_net.counters: counters,
-						opt_net.variances: snf.variances,
-						opt_net.weights: snf.weights, 
-						opt_net.hyperplanes: snf.hyperplanes}
-						
-		# The RNN state is initialised from a zero-matrix
-		loss,_ = sess.run([opt_net.total_loss, opt_net.train_step], feed_dict=feed_dict)
-		losses.append(loss)		
+		total_grads = batch_grads[0] ### why are so many of the grads always zero?
+		
+		for j in range(1,batch_size):
+			for k in range(len(batch_grads[j])):
+				total_grads[k] += batch_grads[j][k]
+		
+		total_grads = [j/batch_size for j in total_grads]
+		
+		#===# Train the optimizer #===#	
+		# By the derivative sum rule, the average of the derivatives (calculated here)
+		# is identical to the derivative of the average (the usual method).
+		feed_dict = {}
+		for j in range(len(opt_net.grads_input)):
+			feed_dict[opt_net.grads_input[j][0]] = total_grads[j]
+		
+		_ = sess.run([opt_net.train_step], feed_dict=feed_dict)	
 		
 		# Synchronize optimizers
 		#if i & net_sync_freq == 0 and i > 0:
@@ -126,8 +153,7 @@ def main():
 		#		v2.assign(v1)
 			
 		if i % summary_freq == 0 and i > 0:
-			print "%d\t%.5f" % (i, np.mean(losses))
-			losses = []
+			print "%d\t%.5f" % (i, loss)
 			
 	# Save model
 	if args.save_model:

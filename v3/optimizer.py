@@ -8,7 +8,7 @@ import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
 		discount_rate, episode_length, loss_noise
-from snf import calc_snf_loss_tf, calc_grads_tf
+import snf
 from nn_utils import tf_print
 
 
@@ -25,6 +25,7 @@ class Optimizer(object):
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
 		
 		# initial_rnn_state is given during evaluation but not during training
+		# each dimension has an independent hidden state, required in order to simulate Adam, RMSProp etc.
 		self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
 		
 		if rnn_type == 'lstm':
@@ -73,13 +74,13 @@ class Optimizer(object):
 				
 				points_output.append(new_point)	
 				
-				new_snf_loss = calc_snf_loss_tf(new_point, self.hyperplanes, self.variances, self.weights)
+				new_snf_loss = snf.calc_snf_loss_tf(new_point, self.hyperplanes, self.variances, self.weights)
 				
 				# Add loss noise - reduce__mean is only to flatten
 				new_snf_loss += tf.reduce_mean(tf.abs(new_snf_loss)*loss_noise*tf.random_uniform([1], minval=-1.0, maxval=1.0))
 				snf_losses_output.append(new_snf_loss) ### without noise?
 				
-				g = calc_grads_tf(new_snf_loss, new_point)
+				g = snf.calc_grads_tf(new_snf_loss, new_point)
 				grads_output.append(g)
 				
 				# Improvement: 2 - 3 = -1 (small loss)
@@ -94,17 +95,21 @@ class Optimizer(object):
 				
 			# Cannot return lists as they are
 			# Indexing is admissible as these 3 variables only need to be returned when seq_length = 1
+			#===# SNF outputs #===#
 			self.snf_losses_output = snf_losses_output[0]
 			self.points_output = points_output[0]
 			self.grads_output = grads_output[0]
 			
+			#===# Model training #===#
 			opt = tf.train.AdamOptimizer()
 			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
+			
 			gvs = opt.compute_gradients(self.total_loss, vars)
-			gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gvs]
+			self.gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for (grad, var) in gvs]
 			#gvs = [(tf.clip_by_norm(grad, 1.0), var) for grad, var in gvs]
-			#self.train_step = opt.minimize(self.total_loss)
-			self.train_step = opt.apply_gradients(gvs)
+
+			self.grads_input = [(tf.placeholder(tf.float32, shape=v.get_shape()), v) for (g,v) in gvs]
+			self.train_step = opt.apply_gradients(self.grads_input)
 
 			
 	# Update the parameters of another network (eg an MLP)
