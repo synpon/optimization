@@ -7,7 +7,7 @@ from constants import grad_scaling_method
 
 
 def xavier_initializer(dims):
-	d = np.sqrt(6.0)/np.sqrt(sum(dims))
+	d = np.sqrt(1.0)/np.sqrt(sum(dims))
 	return tf.random_uniform_initializer(minval=-d, maxval=d)
 
 
@@ -41,8 +41,6 @@ def fc_layer3(layer_in, num_in, num_out, activation_fn):
 	
 	
 def fc_layer(layer_in, num_in, num_out, activation_fn):
-	batch_size = tf.shape(layer_in)[0]
-	
 	W = weight_matrix(num_in, num_out)
 	b = bias_vector(num_in, num_out)
 	out = tf.matmul(layer_in, W) + b

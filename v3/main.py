@@ -7,14 +7,14 @@ import numpy as np
 
 from constants import num_iterations, seq_length, save_path, summary_freq, \
     episode_length, replay_mem_start_size, replay_memory_max_size, \
-	num_SNFs, num_rnn_layers, rnn_size, m, net_sync_freq, batch_size
+	num_SNFs, num_rnn_layers, rnn_size, m, net_sync_freq, batch_size, save_freq
 from snf import SNF, State, StateOps
 from optimizer import Optimizer
 
 """
 rm nohup.out; nohup python -u main.py -s &
 
-pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py
+pyflakes main.py compare.py optimizer.py constants.py snf.py nn_utils.py mlp.py
 pychecker main.py
 """
 
@@ -58,8 +58,6 @@ def main():
 	
 	init = tf.initialize_all_variables()
 	sess.run(init)
-	
-	losses = []
 
 	# Training loop
 	for i in range(num_iterations):
@@ -125,7 +123,7 @@ def main():
 			batch_grads.append(grads_out)
 		
 		loss = np.mean(batch_losses)
-		losses.append(loss)
+		sign_loss = np.mean(np.sign(batch_losses))
 		
 		# Gradients using the RNN hidden state are zero when seq_length = 1
 		total_grads = batch_grads[0]
@@ -135,8 +133,7 @@ def main():
 				total_grads[k] += batch_grads[j][k]
 		
 		total_grads = [j/batch_size for j in total_grads]
-		#print total_grads
-		#print "--------"
+
 		#===# Train the optimizer #===#	
 		# By the derivative sum rule, the average of the derivatives (calculated here)
 		# is identical to the derivative of the average (the usual method).
@@ -155,14 +152,16 @@ def main():
 		#		v2.assign(v1)
 			
 		if i % summary_freq == 0 and i > 0:
-			print "%d\t%.5f" % (i, loss)
+			print "{:>3}{:>10.3}{:>10.3}".format(i, loss, sign_loss)
+			#print "%d\t%.4f\t%.4f" % (i, loss, sign_loss)
 			
-	# Save model
-	if args.save_model:
-		vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
-		saver = tf.train.Saver(vars_to_save)
-		saver.save(sess, save_path)
-		print "Model saved"
+		# Save model
+		if i % save_freq == 0 and i > 0:
+			if args.save_model:
+				vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
+				saver = tf.train.Saver(vars_to_save)
+				saver.save(sess, save_path)
+				print "Model saved"
 
 if __name__ == "__main__":
 	main()
