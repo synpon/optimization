@@ -24,7 +24,7 @@ with tf.variable_scope("opt1"):
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-net = MLP(opt_net)
+net = MLP_RELU(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."

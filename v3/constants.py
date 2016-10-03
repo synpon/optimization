@@ -5,7 +5,7 @@ import numpy as np
 #===# Logging constants #===#
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
-save_freq = 200
+save_freq = 50
 summary_freq = 5
 
 #===# Opt net constants #===#

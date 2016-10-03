@@ -51,12 +51,12 @@ class Optimizer(object):
 			outputs, rnn_state = rnn.dynamic_rnn(self.cell,
 									self.input_grads,
 									initial_state = self.initial_rnn_state,
-									#sequence_length = seq_length*tf.ones(tf.pack([n_dims])),
 									time_major = True)
 			
+			# This is not used in training. Only in evaluation when steps are processed one by one.
 			self.rnn_state_output = rnn_state
 			
-			self.total_loss = 0		
+			self.total_loss = 0
 			outputs = tf.split(0, seq_length, outputs)
 			
 			snf_losses_output = []
@@ -84,6 +84,7 @@ class Optimizer(object):
 				grads_output.append(g)
 				
 				# Improvement: 2 - 3 = -1 (small loss)
+				#loss = tf.tanh(new_snf_loss - snf_loss)
 				loss = new_snf_loss - snf_loss
 				
 				# Weight the loss by its position in the optimisation process
@@ -93,9 +94,9 @@ class Optimizer(object):
 				
 			self.total_loss /= seq_length
 				
-			# Cannot return lists as they are
-			# Indexing is admissible as these 3 variables only need to be returned when seq_length = 1
 			#===# SNF outputs #===#
+			# Used when filling the replay memory during training
+			# Indexing is admissible here as these 3 variables only need to be returned when seq_length = 1
 			self.snf_losses_output = snf_losses_output[0]
 			self.points_output = points_output[0]
 			self.grads_output = grads_output[0]
