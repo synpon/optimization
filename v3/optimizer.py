@@ -7,7 +7,7 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		discount_rate, episode_length, loss_noise
+		episode_length, loss_noise
 import snf
 from nn_utils import tf_print
 
@@ -62,13 +62,15 @@ class Optimizer(object):
 			snf_losses_output = []
 			points_output = []
 			grads_output = []
+			updates = []
 			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
-				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size]))
+				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size])) ### unnecessary?
 			
 				update = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
 				self.update = inv_scale_grads(update) ### Effect of this during comparison (were grads scaled to begin with?)
+				updates.append(self.update)
 				
 				new_point = self.update + tf.squeeze(point, squeeze_dims=[0])
 				
@@ -84,15 +86,17 @@ class Optimizer(object):
 				grads_output.append(g)
 				
 				# Improvement: 2 - 3 = -1 (small loss)
-				#loss = tf.tanh(new_snf_loss - snf_loss)
-				loss = new_snf_loss - snf_loss
-				
-				# Weight the loss by its position in the optimisation process
-				tmp = tf.pow(discount_rate, episode_length - tf.squeeze(counter))
-				w = (tmp*(1 - discount_rate))/tf.maximum(1 - tmp,1e-6)
-				self.total_loss += loss### * w
-				
+				loss = new_snf_loss - snf_loss				
+				self.total_loss += loss
+
 			self.total_loss /= seq_length
+			
+			# Oscillation cost
+			for i in range(len(updates)-1):
+				u1 = updates[i]
+				u2 = updates[i+1]
+				diff = tf.square(u1 - u2)
+				self.total_loss += (200*diff)/seq_length ### adjust
 				
 			#===# SNF outputs #===#
 			# Used when filling the replay memory during training

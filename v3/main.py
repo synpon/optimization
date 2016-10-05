@@ -63,6 +63,7 @@ def main():
 	for i in range(num_iterations):
 		batch_losses = []
 		batch_grads = []
+		batch_counters = []
 		
 		for j in range(batch_size):
 			# Retrieve a starting point from the replay memory
@@ -98,8 +99,14 @@ def main():
 				state.grads = grads
 				state.counter += 1
 				
-				###replay_memory.append(state)
 				states_seq.append(state)
+				
+			# Only the last state is added. Adding more may result in a loss 
+			# of diversity in the replay memory
+			replay_memory.append(states_seq[-1])
+			
+			if len(replay_memory) > replay_memory_max_size:
+				replay_memory = replay_memory[-replay_memory_max_size:]
 				
 			#===# Calculate loss for the optimizer #===#
 			# The RNN state is initialised from a zero-matrix
@@ -119,13 +126,15 @@ def main():
 			res = sess.run([opt_net.total_loss] + [g for g,v in opt_net.gvs], feed_dict=feed_dict)
 			loss = res[0]
 			grads_out = res[1:]
+			
+			batch_counters.append(np.mean(counters))
 			batch_losses.append(loss)
 			batch_grads.append(grads_out)
 		
 		loss = np.mean(batch_losses)
 		sign_loss = np.mean(np.sign(batch_losses))
-		
-		# Gradients using the RNN hidden state are zero when seq_length = 1
+		avg_counter = np.mean(batch_counters)
+
 		total_grads = batch_grads[0]
 		
 		for j in range(1,batch_size):
@@ -152,8 +161,7 @@ def main():
 		#		v2.assign(v1)
 			
 		if i % summary_freq == 0 and i > 0:
-			print "{:>3}{:>10.3}{:>10.3}".format(i, loss, sign_loss)
-			#print "%d\t%.4f\t%.4f" % (i, loss, sign_loss)
+			print "{:>3}{:>10.3}{:>10.3}{:>10.3}".format(i, loss, sign_loss, avg_counter)
 			
 		# Save model
 		if i % save_freq == 0 and i > 0:
