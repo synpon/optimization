@@ -14,7 +14,7 @@ def xavier_initializer(dims):
 def weight_matrix(num_in, num_out):
 	with tf.variable_scope("weight"):
 		# Uses 1 rather than 6 as the fc_layer3 does not have an activation function
-		d = np.sqrt(1.0)/np.sqrt(num_in+num_out)
+		d = np.sqrt(1.0)/np.sqrt(num_in+num_out) ### should be sqrt(2.0) or sqrt(6.0)?
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		

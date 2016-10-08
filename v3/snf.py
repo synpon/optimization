@@ -41,9 +41,12 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	hp_inv = tf.batch_matrix_inverse(hyperplanes) # [k,m,m]
 	x = tf.ones((k,m,1))
 	a = tf.batch_matmul(hp_inv, x) # [k,m,1]
-	point = tf.reshape(point,[1,1,m])
-	point = tf.tile(point,[k,1,1]) # [k,1,m]
-	D = tf.batch_matmul(point,a) - 1 # [k,1,1]
+	#point = tf.reshape(point,[1,1,m])
+	#point = tf.tile(point,[k,1,1]) # [k,1,m]
+	#D = tf.batch_matmul(point,a) - 1 # [k,1,1]
+	point = tf.reshape(point,[m,1]) ### check
+	a = tf.reshape(a,[k,m])
+	D = tf.matmul(a,point) - 1
 	D = tf.reshape(D,[k])
 	norm = tf.sqrt(tf.reduce_sum(tf.square(a),reduction_indices=[1])) # [k]
 	D /= norm#tf.maximum(norm,1e-6) # [k]

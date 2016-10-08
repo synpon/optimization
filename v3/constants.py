@@ -10,8 +10,8 @@ summary_freq = 5
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[1]
-rnn_size = 8
+rnn_type = rnn_types[2]
+rnn_size = 20
 num_rnn_layers = 1
 
 #===# SNF constants #===#
@@ -22,7 +22,7 @@ var_size = 0.2
 #===# Training constants #===#
 batch_size = 250
 seq_length = 10
-num_iterations = 1000
+num_iterations = 10000
 num_SNFs = 1000
 replay_mem_start_size = 5000 # DQN: 50000
 replay_memory_max_size = 100000 # DQN: 1000000
