@@ -28,10 +28,10 @@ class SNF(object):
 		return loss, grads
 		
 		
-	def gen_points(self,num_points):
-		points = np.random.rand(m*num_points)
-		points = np.reshape(points,[m,num_points])
-		return points
+def gen_points(num_points):
+	points = np.random.rand(m*num_points)
+	points = np.reshape(points,[m,num_points])
+	return points
 	
 		
 def calc_snf_loss_tf(point,hyperplanes,variances,weights):
@@ -41,10 +41,7 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	hp_inv = tf.batch_matrix_inverse(hyperplanes) # [k,m,m]
 	x = tf.ones((k,m,1))
 	a = tf.batch_matmul(hp_inv, x) # [k,m,1]
-	#point = tf.reshape(point,[1,1,m])
-	#point = tf.tile(point,[k,1,1]) # [k,1,m]
-	#D = tf.batch_matmul(point,a) - 1 # [k,1,1]
-	point = tf.reshape(point,[m,1]) ### check
+	point = tf.reshape(point,[m,1])
 	a = tf.reshape(a,[k,m])
 	D = tf.matmul(a,point) - 1
 	D = tf.reshape(D,[k])
@@ -92,7 +89,7 @@ class State(object):
 
 	def __init__(self, snf, state_ops, sess):
 		self.snf = snf
-		self.point = snf.gen_points(1)
+		self.point = gen_points(1)
 		self.counter = 1
 		self.loss_and_grads(snf, state_ops, sess) # calc and set
 		

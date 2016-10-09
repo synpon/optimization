@@ -62,15 +62,13 @@ class Optimizer(object):
 			snf_losses_output = []
 			points_output = []
 			grads_output = []
-			#updates = []
 			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
-				output = tf.reshape(output,tf.pack([1,n_dims,rnn_size])) ### unnecessary?
+				output = tf.reshape(output,tf.pack([n_dims,rnn_size])) ### unnecessary?
 			
-				update = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
+				update = fc_layer(output, num_in=rnn_size, num_out=1, activation_fn=None, bias=False)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
 				self.update = inv_scale_grads(update) ### Effect of this during comparison (were grads scaled to begin with?)
-				#updates.append(self.update)
 				
 				new_point = self.update + tf.squeeze(point, squeeze_dims=[0])
 				
@@ -96,15 +94,15 @@ class Optimizer(object):
 			for i in range(len(grads_output)-1):
 				g1 = grads_output[i]
 				g2 = grads_output[i+1]
-				#cosine_dist = tf.reduce_sum(tf.mul(g1,g2)) # Dot product
+				
 				g1_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
 				g2_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
+				
+				# The cosine distance is the dot product of the normed vectors
 				cosine_dist = tf.reduce_sum(tf.mul(tf.div(g1,g1_norm), tf.div(g2,g2_norm)))
-				#cosine_dist /= g1_norm*g2_norm
 				osc_cost += 0.001*tf.maximum(0.0,-cosine_dist) ### adjust
 				
 			self.total_loss += osc_cost/seq_length
-			#self.total_loss *= tf.pow(osc_cost/seq_length, 0.1)
 				
 			#===# SNF outputs #===#
 			# Used when filling the replay memory during training
@@ -126,19 +124,15 @@ class Optimizer(object):
 
 			
 	# Update the parameters of another network (eg an MLP)
-	def update_params(self, vars, h):
+	def update_params(self, vars, update):
 		total = 0
 		ret = []
 
 		for i,v in enumerate(vars):
 			size = np.prod(list(v.get_shape()))
 			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[total,0],size=[size,-1])
+			var_grads = tf.slice(update,begin=[total,0],size=[size,-1])
 			var_grads = tf.reshape(var_grads,v.get_shape())
-			
-			#if not grad_clip_value is None:
-			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
-			
 			ret.append(v.assign_add(var_grads))
 			size += total		
 		return tf.group(*ret)

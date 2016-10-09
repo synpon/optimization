@@ -8,7 +8,7 @@ from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
 from optimizer import Optimizer
-from constants import summaries_dir, save_path
+from constants import summaries_dir, save_path, seq_length
 
 """
 tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
@@ -73,6 +73,9 @@ for i in range(1):
 		
 		# Compute gradients
 		summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+		
+		if j % seq_length == 0: ### Seq. length causes a significant difference in test error
+			rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 		
 		# Compute update
 		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
