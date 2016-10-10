@@ -895,7 +895,7 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
     else:
       res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
-      return res
+      return res ### put bias back?
     #bias_term = tf.get_variable(
     #    "Bias", [output_size],
     #    initializer=tf.constant_initializer(bias_start))

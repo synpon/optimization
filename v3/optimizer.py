@@ -7,7 +7,7 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		episode_length, loss_noise
+		episode_length, loss_noise, osc_control
 import snf
 from nn_utils import tf_print
 
@@ -23,14 +23,14 @@ class Optimizer(object):
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
 		self.weights = tf.placeholder(tf.float32, [k,1], 'weights')
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k], 'hyperplanes') # Points which define the hyperplanes
-		
-		# initial_rnn_state is given during evaluation but not during training
-		# each dimension has an independent hidden state, required in order to simulate Adam, RMSProp etc.
-		self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
-		
+			
 		if rnn_type == 'lstm':
 			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, 2*num_rnn_layers*rnn_size]), shape=[None, 2*num_rnn_layers*rnn_size])
-		
+		else:
+			# initial_rnn_state is given during evaluation but not during training
+			# each dimension has an independent hidden state, required in order to simulate Adam, RMSProp etc.
+			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
+			
 		n_dims = tf.shape(self.input_grads)[1]
 		
 		points = tf.split(0, seq_length, self.points)
@@ -38,13 +38,13 @@ class Optimizer(object):
 		counters = tf.split(0, seq_length, self.counters)
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
-		with tf.variable_scope("a3c"):
+		with tf.variable_scope("a3c"): ### rename scope
 			if rnn_type == 'rnn':
 				cell = rnn_cell.BasicRNNCell(rnn_size)
 			elif rnn_type == 'gru':
 				cell = rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
-				cell = rnn_cell.BasicLSTMCell(rnn_size)
+				cell = rnn_cell.LSTMCell(rnn_size)#, cell_clip=5.0)
 				
 			self.cell = rnn_cell.MultiRNNCell([cell] * num_rnn_layers)
 			
@@ -64,7 +64,7 @@ class Optimizer(object):
 			grads_output = []
 			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
-				output = tf.reshape(output,tf.pack([n_dims,rnn_size])) ### unnecessary?
+				output = tf.reshape(output,tf.pack([n_dims,rnn_size]))
 			
 				update = fc_layer(output, num_in=rnn_size, num_out=1, activation_fn=None, bias=False)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
@@ -100,7 +100,7 @@ class Optimizer(object):
 				
 				# The cosine distance is the dot product of the normed vectors
 				cosine_dist = tf.reduce_sum(tf.mul(tf.div(g1,g1_norm), tf.div(g2,g2_norm)))
-				osc_cost += 0.001*tf.maximum(0.0,-cosine_dist) ### adjust
+				osc_cost += osc_control*tf.maximum(0.0,-cosine_dist)
 				
 			self.total_loss += osc_cost/seq_length
 				

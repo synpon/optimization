@@ -10,7 +10,7 @@ summary_freq = 5
 
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
-rnn_type = rnn_types[2]
+rnn_type = rnn_types[1]
 rnn_size = 20
 num_rnn_layers = 1
 
@@ -21,9 +21,10 @@ var_size = 0.2
 
 #===# Training constants #===#
 batch_size = 250
-seq_length = 10
+seq_length = 10 ### add a normalizer to the RNN state so it doesn't deteriorate after seq_length iterations?
 num_iterations = 10000
 num_SNFs = 1000
+osc_control = 0.00125
 replay_mem_start_size = 5000 # DQN: 50000
 replay_memory_max_size = 100000 # DQN: 1000000
 episode_length = 100
