@@ -21,10 +21,10 @@ var_size = 0.2
 
 #===# Training constants #===#
 batch_size = 250
-seq_length = 10 ### add a normalizer to the RNN state so it doesn't deteriorate after seq_length iterations?
+seq_length = 10
 num_iterations = 10000
 num_SNFs = 1000
-osc_control = 0.00125
+osc_control = 0.05
 replay_mem_start_size = 5000 # DQN: 50000
 replay_memory_max_size = 100000 # DQN: 1000000
 episode_length = 100

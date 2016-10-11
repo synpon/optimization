@@ -62,6 +62,7 @@ class Optimizer(object):
 			snf_losses_output = []
 			points_output = []
 			grads_output = []
+			updates = []
 			
 			for point,snf_loss,output,counter in zip(points,snf_losses,outputs,counters):
 				output = tf.reshape(output,tf.pack([n_dims,rnn_size]))
@@ -69,6 +70,7 @@ class Optimizer(object):
 				update = fc_layer(output, num_in=rnn_size, num_out=1, activation_fn=None, bias=False)
 				update = tf.reshape(update, tf.pack([n_dims,1]))
 				self.update = inv_scale_grads(update) ### Effect of this during comparison (were grads scaled to begin with?)
+				updates.append(self.update)
 				
 				new_point = self.update + tf.squeeze(point, squeeze_dims=[0])
 				
@@ -91,18 +93,29 @@ class Optimizer(object):
 			
 			# Oscillation cost
 			osc_cost = 0.0
-			for i in range(len(grads_output)-1):
-				g1 = grads_output[i]
-				g2 = grads_output[i+1]
+			#for i in range(len(grads_output)-1):
+			#	g1 = grads_output[i]
+			#	g2 = grads_output[i+1]
+			#	g_prime = g1 + g2
 				
-				g1_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
-				g2_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
+			#	g1_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
+			#	g2_norm = tf.sqrt(tf.reduce_sum(tf.square(g2)))
+			#	g_prime_norm = tf.sqrt(tf.reduce_sum(tf.square(g_prime)))
 				
-				# The cosine distance is the dot product of the normed vectors
-				cosine_dist = tf.reduce_sum(tf.mul(tf.div(g1,g1_norm), tf.div(g2,g2_norm)))
-				osc_cost += osc_control*tf.maximum(0.0,-cosine_dist)
+			#	osc_cost -= osc_control*(g_prime_norm - g1_norm - g2_norm)
 				
-			self.total_loss += osc_cost/seq_length
+			for i in range(len(updates)-1):
+				u1 = updates[i]
+				u2 = updates[i+1]
+				u_prime = u1 + u2
+				
+				u1_norm = tf.sqrt(tf.reduce_sum(tf.square(u1)))
+				u2_norm = tf.sqrt(tf.reduce_sum(tf.square(u2)))
+				u_prime_norm = tf.sqrt(tf.reduce_sum(tf.square(u_prime)))
+				
+				osc_cost -= osc_control*(u_prime_norm - u1_norm - u2_norm)
+				
+			self.total_loss += osc_cost/(seq_length*m)
 				
 			#===# SNF outputs #===#
 			# Used when filling the replay memory during training
