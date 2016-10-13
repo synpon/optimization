@@ -47,7 +47,7 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	D = tf.reshape(D,[k])
 	norm = tf.sqrt(tf.reduce_sum(tf.square(a),reduction_indices=[1])) # [k]
 	D /= norm#tf.maximum(norm,1e-6) # [k]
-	losses = tf.abs(D) # [k]
+	losses = tf.abs(D) # [k] ### superfluous - remove?
 	
 	losses = tf.square(losses) # [k]
 	losses /= -2*variances # [k]
