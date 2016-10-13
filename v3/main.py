@@ -75,30 +75,29 @@ def main():
 				
 			### The RNN state is initialised from a zero-matrix?
 			
-			feed_dict = {opt_net.points: [state.point], 
-							opt_net.snf_losses: [state.loss],
+			feed_dict = {opt_net.point: state.point,
 							opt_net.variances: snf.variances, 
 							opt_net.weights: snf.weights, 
-							opt_net.hyperplanes: snf.hyperplanes, 
-							opt_net.input_grads: state.grads,
+							opt_net.hyperplanes: snf.hyperplanes,
 							opt_net.initial_rnn_state: state.rnn_state}
 			
-			res = sess.run([opt_net.snf_losses_output,
-							opt_net.points_output,
-							opt_net.grads_output,
-							opt_net.total_loss,
-							opt_net.train_step]
+			res = sess.run([opt_net.new_point,
+							opt_net.rnn_state_out,
+							opt_net.total_loss]
 							+ [g for g,v in opt_net.gvs], 
 							feed_dict=feed_dict)
 														
-			snf_loss, new_point, grads, loss,_ = res[0:5]
-			grads_out = res[5:]
+			new_point, rnn_state_out, loss = res[0:3]
+			grads_out = res[3:]
 			
+			# Prepare a new state to add to the replay memory
 			state = State(snf, state_ops, sess)
-			state.loss = snf_loss
 			state.point = new_point
-			state.grads = grads
-			state.counter += 1
+			state.rnn_state = rnn_state_out
+			# Prevent these attributes from being used until their values are overridden
+			state.loss = None
+			state.grads = None
+			state.counter += seq_length
 				
 			# Only the last state is added. Adding more may result in a loss 
 			# of diversity in the replay memory

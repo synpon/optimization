@@ -91,6 +91,7 @@ class Optimizer(object): ### Currently only suitable for training
 			# Do the computation
 			res = tf.while_loop(condition, body, loop_vars)
 			
+			self.new_point = res[1]
 			self.rnn_state_out = res[3]		
 			losses = res[4].pack()
 			updates = res[5].pack()
@@ -109,13 +110,6 @@ class Optimizer(object): ### Currently only suitable for training
 				
 			osc_cost = tf_norm(overall_update)/norm_sum				
 			self.total_loss += osc_control*osc_cost
-				
-			#===# SNF outputs #===#
-			# Used when filling the replay memory during training
-			# Indexing is admissible here as these 3 variables only need to be returned when seq_length = 1
-			#self.snf_losses_output = snf_losses_output[0]
-			#self.points_output = points_output[0]
-			#self.grads_output = grads_output[0]
 			
 			#===# Model training #===#
 			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
