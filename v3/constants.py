@@ -22,13 +22,13 @@ var_size = 0.2
 #===# Training constants #===#
 batch_size = 250
 seq_length = 10
-num_iterations = 10000
+num_iterations = 400
 num_SNFs = 1000
-osc_control = 0.1
-replay_mem_start_size = 5000 # DQN: 50000
-replay_memory_max_size = 100000 # DQN: 1000000
+osc_control = 0.05
+replay_mem_start_size = 5000
+replay_memory_max_size = 100000
 episode_length = 100
-net_sync_freq = 200 # DQN: 10000
+net_sync_freq = 150
 
 grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[0]

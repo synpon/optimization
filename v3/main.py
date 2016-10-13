@@ -58,6 +58,8 @@ def main():
 	
 	init = tf.initialize_all_variables()
 	sess.run(init)
+	
+	best_loss = np.float('inf')
 
 	# Training loop
 	for i in range(num_iterations):
@@ -152,24 +154,26 @@ def main():
 		
 		_ = sess.run([opt_net.train_step], feed_dict=feed_dict)	
 		
+		if i % summary_freq == 0 and i > 0:
+			print "{:>3}{:>10.3}{:>10.3}{:>10.3}".format(i, loss, sign_loss, avg_counter)		
+		
 		# Synchronize optimizers
-		if i & net_sync_freq == 0 and i > 0:
+		if i % net_sync_freq == 0 and i > 0:
 			opt1_vars = [j for j in tf.trainable_variables() if 'opt1' in j.name]
 			opt2_vars = [j for j in tf.trainable_variables() if 'opt2' in j.name]
 			for v1,v2 in zip(opt1_vars,opt2_vars):
 				# The net which generates states copies the variables of the net which is trained.
 				v2.assign(v1)
-			
-		if i % summary_freq == 0 and i > 0:
-			print "{:>3}{:>10.3}{:>10.3}{:>10.3}".format(i, loss, sign_loss, avg_counter)
+			print "Optimizers synchronized"
 			
 		# Save model
-		if i % save_freq == 0 and i > 0:
+		if loss < best_loss:
+			best_loss = loss
 			if args.save_model:
 				vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
 				saver = tf.train.Saver(vars_to_save)
 				saver.save(sess, save_path)
-				print "Model saved"
+				print "Model saved ", loss
 
 if __name__ == "__main__":
 	main()

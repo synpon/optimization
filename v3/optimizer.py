@@ -92,33 +92,21 @@ class Optimizer(object):
 			self.total_loss /= seq_length
 			
 			# Asymmetric loss function
-			self.total_loss = tf.maximum(self.total_loss,5*self.total_loss)
+			self.total_loss = tf.maximum(self.total_loss,20*self.total_loss)
 			
-			# Oscillation cost
-			#osc_cost = 0.0
-			#for i in range(len(grads_output)-1):
-			#	g1 = grads_output[i]
-			#	g2 = grads_output[i+1]
-			#	g_prime = g1 + g2
+			osc_cost = 0
+			for i in range(len(updates)-1):
+				u1 = updates[i]
+				u2 = updates[i+1]
+				u_prime = u1 + u2
 				
-			#	g1_norm = tf.sqrt(tf.reduce_sum(tf.square(g1)))
-			#	g2_norm = tf.sqrt(tf.reduce_sum(tf.square(g2)))
-			#	g_prime_norm = tf.sqrt(tf.reduce_sum(tf.square(g_prime)))
+				u1_norm = tf.sqrt(tf.reduce_sum(tf.square(u1)))
+				u2_norm = tf.sqrt(tf.reduce_sum(tf.square(u2)))
+				u_prime_norm = tf.sqrt(tf.reduce_sum(tf.square(u_prime)))
 				
-			#	osc_cost -= osc_control*(g_prime_norm - g1_norm - g2_norm)
+				osc_cost -= osc_control*(u_prime_norm - u1_norm - u2_norm)
 				
-			#for i in range(len(updates)-1):
-			#	u1 = updates[i]
-			#	u2 = updates[i+1]
-			#	u_prime = u1 + u2
-				
-			#	u1_norm = tf.sqrt(tf.reduce_sum(tf.square(u1)))
-			#	u2_norm = tf.sqrt(tf.reduce_sum(tf.square(u2)))
-			#	u_prime_norm = tf.sqrt(tf.reduce_sum(tf.square(u_prime)))
-				
-			#	osc_cost -= osc_control*(u_prime_norm - u1_norm - u2_norm)
-				
-			#self.total_loss += osc_cost/(seq_length*m)
+			self.total_loss += osc_cost/(seq_length*m)
 				
 			#===# SNF outputs #===#
 			# Used when filling the replay memory during training
