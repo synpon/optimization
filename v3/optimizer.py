@@ -12,9 +12,9 @@ import snf
 from nn_utils import tf_print
 
 
-class Optimizer(object):
+class Optimizer(object): ### Currently only suitable for training
 
-	def __init__(self, seq_length,scope_name):
+	def __init__(self, seq_length, scope_name):	### seq_length may not be a necessary argument anymore
 		# Input
 		self.point = tf.placeholder(tf.float32, [m,1], 'points') # Used in training only
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
@@ -43,7 +43,7 @@ class Optimizer(object):
 			snf_losses = []
 			
 			# Arguments passed to the condition and body functions
-			time = tf.constant(0.0) ### check incrementing works
+			time = tf.constant(0) ### check incrementing works
 			point = self.point
 			
 			snf_loss = snf.calc_snf_loss_tf(point, self.hyperplanes, self.variances, self.weights)
@@ -51,55 +51,64 @@ class Optimizer(object):
 			snf_grads = snf.calc_grads_tf(snf_loss,point)
 			snf_grads = tf.squeeze(snf_grads, [0])
 			
-			loss = tf.constant(0.0)
-			
+			snf_loss_ta = tf.TensorArray(dtype=tf.float32, size=seq_length)
+			update_ta = tf.TensorArray(dtype=tf.float32, size=seq_length)
 			rnn_state = tf.zeros([m,rnn_size])
-			loop_vars = [time, point, snf_grads, rnn_state, loss]
 			
-			def condition(time, point, snf_grads, rnn_state, loss):
+			loop_vars = [time, point, snf_grads, rnn_state, snf_loss_ta, update_ta, self.hyperplanes, self.variances, self.weights]
+			
+			def condition(time, point, snf_grads, rnn_state, snf_loss_ta, update_ta, hyperplanes, variances, weights):
 				return tf.less(time,seq_length)
 				
-			# Function defined inside __init__ in order to avoid passing hyperplanes, variances etc. as arguments
-			def body(time, point, snf_grads, rnn_state, loss):
-				time += 1
-
+			def body(time, point, snf_grads, rnn_state, snf_loss_ta, update_ta, hyperplanes, variances, weights):
+				
 				h, rnn_state_out = self.cell(snf_grads, rnn_state)
 	
 				# Final layer of the optimizer
-				update = fc_layer(h, num_in=rnn_size, num_out=1, activation_fn=None, bias=False)
+				# Cannot use fc_layer due to a 'must be from the same frame' error
+				d = np.sqrt(1.0)/np.sqrt(rnn_size+1) ### should be sqrt(2, 3 or 6?)
+				initializer = tf.random_uniform_initializer(-d, d)
+				W = tf.get_variable("W", [rnn_size,1], initializer=initializer)
+				
+				# No bias, linear activation function
+				update = tf.matmul(h,W)
 				update = tf.reshape(update, [m,1])
-				#update.set_shape()
 				
 				new_point = point + update
 				
-				snf_loss = snf.calc_snf_loss_tf(new_point, self.hyperplanes, self.variances, self.weights)
+				snf_loss = snf.calc_snf_loss_tf(new_point, hyperplanes, variances, weights)
 				snf_losses.append(snf_loss)
-				loss += snf_loss
+				
+				snf_loss_ta = snf_loss_ta.write(time, snf_loss)
+				update_ta = update_ta.write(time, update)
 				
 				snf_grads_out = snf.calc_grads_tf(snf_loss,point)
 				snf_grads_out = tf.reshape(snf_grads_out,[m,1])
 				
-				return [time, new_point, snf_grads_out, rnn_state_out, loss]
-			
-			# Total change in the SNF loss
-			#self.total_loss = 0 ###			
+				time += 1
+				return [time, new_point, snf_grads_out, rnn_state_out, snf_loss_ta, update_ta, hyperplanes, variances, weights]		
 			
 			# Do the computation
 			res = tf.while_loop(condition, body, loop_vars)
-			self.rnn_state_out = res[3]
-			self.total_loss = res[4]
+			
+			self.rnn_state_out = res[3]		
+			losses = res[4].pack()
+			updates = res[5].pack()
+			
+			# Total change in the SNF loss
+			self.total_loss = losses[0] - losses[seq_length - 1] ### check
 			
 			# Oscillation cost
-			overall_update = tf.zeros([m])
-			norm_sum = 0
+			### Ensure this is connected to the rest of the graph
+			overall_update = tf.zeros([m,1])
+			norm_sum = 0.0
 				
-			for i in range(len(updates)):
-				overall_update += updates[i]
-				norm_sum += tf_norm(updates[i])
+			for i in range(seq_length):
+				overall_update += updates[i,:,:]
+				norm_sum += tf_norm(updates[i,:,:])
 				
-			osc_cost = tf_norm(overall_update)/norm_sum
-				
-			#self.total_loss += osc_cost
+			osc_cost = tf_norm(overall_update)/norm_sum				
+			self.total_loss += osc_control*osc_cost
 				
 			#===# SNF outputs #===#
 			# Used when filling the replay memory during training
@@ -112,8 +121,8 @@ class Optimizer(object):
 			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
 			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
 			
-			gvs = opt.compute_gradients(self.total_loss, vars) ###
-			print gvs
+			gvs = opt.compute_gradients(self.total_loss, vars)
+			
 			self.gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for (grad, var) in gvs]
 
 			self.grads_input = [(tf.placeholder(tf.float32, shape=v.get_shape()), v) for (g,v) in gvs]
