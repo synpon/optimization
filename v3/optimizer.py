@@ -43,7 +43,7 @@ class Optimizer(object): ### Currently only suitable for training
 			snf_losses = []
 			
 			# Arguments passed to the condition and body functions
-			time = tf.constant(0) ### check incrementing works
+			time = tf.constant(0)
 			point = self.point
 			
 			snf_loss = snf.calc_snf_loss_tf(point, self.hyperplanes, self.variances, self.weights)
@@ -97,7 +97,7 @@ class Optimizer(object): ### Currently only suitable for training
 			updates = res[5].pack()
 			
 			# Total change in the SNF loss
-			self.total_loss = losses[0] - losses[seq_length - 1] ### check
+			self.snf_loss_change = losses[0] - losses[seq_length - 1] ### check
 			
 			# Oscillation cost
 			### Ensure this is connected to the rest of the graph
@@ -109,7 +109,7 @@ class Optimizer(object): ### Currently only suitable for training
 				norm_sum += tf_norm(updates[i,:,:])
 				
 			osc_cost = tf_norm(overall_update)/norm_sum				
-			self.total_loss += osc_control*osc_cost
+			self.total_loss = self.snf_loss_change + osc_control*osc_cost
 			
 			#===# Model training #===#
 			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)

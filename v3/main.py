@@ -61,6 +61,7 @@ def main():
 	# Training loop
 	for i in range(num_iterations):
 		batch_losses = []
+		batch_snf_losses = []
 		batch_grads = []
 		batch_counters = []
 		
@@ -83,20 +84,23 @@ def main():
 			
 			res = sess.run([opt_net.new_point,
 							opt_net.rnn_state_out,
+							opt_net.snf_loss_change,
 							opt_net.total_loss]
 							+ [g for g,v in opt_net.gvs], 
 							feed_dict=feed_dict)
 														
-			new_point, rnn_state_out, loss = res[0:3]
-			grads_out = res[3:]
+			new_point, rnn_state_out, snf_loss_change, loss = res[0:4]
+			grads_out = res[4:]
 			
 			# Prepare a new state to add to the replay memory
 			state = State(snf, state_ops, sess)
 			state.point = new_point
 			state.rnn_state = rnn_state_out
+			
 			# Prevent these attributes from being used until their values are overridden
 			state.loss = None
 			state.grads = None
+			
 			state.counter += seq_length
 				
 			# Only the last state is added. Adding more may result in a loss 
@@ -106,13 +110,15 @@ def main():
 			if len(replay_memory) > replay_memory_max_size:
 				replay_memory = replay_memory[-replay_memory_max_size:]
 			
-			#batch_counters.append(np.mean(counters))
+			batch_counters.append(state.counter)
 			batch_losses.append(loss)
+			batch_snf_losses.append(snf_loss_change)
 			batch_grads.append(grads_out)
 		
 		loss = np.mean(batch_losses)
-		#sign_loss = np.mean(np.sign(batch_losses))
-		#avg_counter = np.mean(batch_counters)
+		sign_loss = np.mean(np.sign(batch_snf_losses))
+		avg_counter = np.mean(batch_counters)
+		avg_loss_change_sign = np.mean(batch_snf_losses)
 
 		total_grads = batch_grads[0]
 		
@@ -132,7 +138,7 @@ def main():
 		_ = sess.run([opt_net.train_step], feed_dict=feed_dict)
 			
 		if i % summary_freq == 0 and i > 0:
-			print "{:>3}{:>10.3}".format(i, loss)
+			print "{:>3}{:>10.3}{:>10.3}{:>10.3}".format(i, loss, avg_loss_change_sign, avg_counter)
 			
 		# Save model
 		if i % save_freq == 0 and i > 0:
