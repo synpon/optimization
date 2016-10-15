@@ -141,12 +141,13 @@ def main():
 			print "{:>3}{:>10.3}{:>10.3}{:>10.3}".format(i, loss, avg_loss_change_sign, avg_counter)
 			
 		# Save model
-		if i % save_freq == 0 and i > 0:
+		if loss < best_loss:
+			best_loss = loss
 			if args.save_model:
 				vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
 				saver = tf.train.Saver(vars_to_save)
 				saver.save(sess, save_path)
-				print "Model saved"
+				print "{:>3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, avg_counter)
 
 if __name__ == "__main__":
 	main()

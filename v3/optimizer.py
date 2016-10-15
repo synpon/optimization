@@ -14,7 +14,7 @@ from nn_utils import tf_print
 
 class Optimizer(object):
 
-	def __init__(self, scope_name): ### scope_name argument is unnecessary with only one optimizer?
+	def __init__(self, scope_name):
 		# Input
 		self.point = tf.placeholder(tf.float32, [m,1], 'points') # Used in training only
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
@@ -115,7 +115,7 @@ class Optimizer(object):
 			
 			#===# Model training #===#
 			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
-			vars = [i for i in tf.trainable_variables() if scope_name in i.name] ### could be unreliable in the future
+			vars = tf.trainable_variables()
 			
 			gvs = opt.compute_gradients(self.total_loss, vars)
 			

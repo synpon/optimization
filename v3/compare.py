@@ -17,8 +17,7 @@ http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 
 sess = tf.Session()
 	
-with tf.variable_scope("opt1"): ### scope no longer needed?
-	opt_net = Optimizer("opt1")
+opt_net = Optimizer()
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
