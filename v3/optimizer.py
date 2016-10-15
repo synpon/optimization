@@ -7,14 +7,14 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		episode_length, loss_noise, osc_control
+		episode_length, loss_noise, osc_control, seq_length
 import snf
 from nn_utils import tf_print
 
 
-class Optimizer(object): ### Currently only suitable for training
+class Optimizer(object):
 
-	def __init__(self, seq_length, scope_name):	### seq_length may not be a necessary argument anymore
+	def __init__(self, scope_name): ### scope_name argument is unnecessary with only one optimizer?
 		# Input
 		self.point = tf.placeholder(tf.float32, [m,1], 'points') # Used in training only
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')
@@ -24,7 +24,7 @@ class Optimizer(object): ### Currently only suitable for training
 		if rnn_type == 'lstm':
 			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, 2*num_rnn_layers*rnn_size]), shape=[None, 2*num_rnn_layers*rnn_size])
 		else:
-			# initial_rnn_state is given during evaluation but not during training
+			# initial_rnn_state is passed during evaluation but not during training
 			# each dimension has an independent hidden state, required in order to simulate Adam, RMSProp etc.
 			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
 
@@ -63,7 +63,7 @@ class Optimizer(object): ### Currently only suitable for training
 			def body(time, point, snf_grads, rnn_state, snf_loss_ta, update_ta, hyperplanes, variances, weights):
 				
 				h, rnn_state_out = self.cell(snf_grads, rnn_state)
-	
+
 				# Final layer of the optimizer
 				# Cannot use fc_layer due to a 'must be from the same frame' error
 				d = np.sqrt(1.0)/np.sqrt(rnn_size+1) ### should be sqrt(2, 3 or 6?)
@@ -73,6 +73,7 @@ class Optimizer(object): ### Currently only suitable for training
 				# No bias, linear activation function
 				update = tf.matmul(h,W)
 				update = tf.reshape(update, [m,1])
+				update = inv_scale_grads(update)
 				
 				new_point = point + update
 				
@@ -89,7 +90,8 @@ class Optimizer(object): ### Currently only suitable for training
 				return [time, new_point, snf_grads_out, rnn_state_out, snf_loss_ta, update_ta, hyperplanes, variances, weights]		
 			
 			# Do the computation
-			res = tf.while_loop(condition, body, loop_vars)
+			with tf.variable_scope("o1"):
+				res = tf.while_loop(condition, body, loop_vars)
 			
 			self.new_point = res[1]
 			self.rnn_state_out = res[3]		
@@ -121,7 +123,20 @@ class Optimizer(object): ### Currently only suitable for training
 
 			self.grads_input = [(tf.placeholder(tf.float32, shape=v.get_shape()), v) for (g,v) in gvs]
 			self.train_step = opt.apply_gradients(self.grads_input)
-
+			
+			#===# Comparison code #===#
+			self.input_grads = tf.placeholder(tf.float32, [1,None,1], 'input_grads') ### Remove first dimension?
+			input_grads = tf.squeeze(self.input_grads, [0])
+			
+			with tf.variable_scope("o1", reuse=True) as scope:
+				h, self.rnn_state_out_compare = self.cell(input_grads, self.initial_rnn_state)
+			
+				W = tf.get_variable("W")
+				update = tf.matmul(h,W)
+				
+				update = tf.reshape(update, [-1,1])
+				self.update = inv_scale_grads(update)
+			
 			
 	# Update the parameters of another network (eg an MLP)
 	def update_params(self, vars, update):

@@ -17,8 +17,8 @@ http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 
 sess = tf.Session()
 	
-with tf.variable_scope("opt1"):
-	opt_net = Optimizer(1,"opt1")
+with tf.variable_scope("opt1"): ### scope no longer needed?
+	opt_net = Optimizer("opt1")
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
@@ -77,7 +77,7 @@ for i in range(1):
 		# Compute update
 		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
 					net.opt_net.initial_rnn_state: rnn_state}
-		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_output], feed_dict=feed_dict)
+		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
 		
 		# Update MLP parameters
 		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	

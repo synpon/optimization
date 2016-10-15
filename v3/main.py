@@ -33,7 +33,7 @@ def main():
 	state_ops = StateOps()
 	
 	with tf.variable_scope("opt1"):
-		opt_net = Optimizer(seq_length,"opt1")
+		opt_net = Optimizer("opt1")
 	
 	snfs = []
 	# Generate the set of SNFs
