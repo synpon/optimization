@@ -14,7 +14,7 @@ from nn_utils import tf_print
 
 class Optimizer(object):
 
-	def __init__(self, scope_name):
+	def __init__(self):
 		# Input
 		self.point = tf.placeholder(tf.float32, [m,1], 'points') # Used in training only
 		self.variances = tf.placeholder(tf.float32, [k,1], 'variances')

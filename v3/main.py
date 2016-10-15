@@ -32,8 +32,7 @@ def main():
 	sess = tf.Session()
 	state_ops = StateOps()
 	
-	with tf.variable_scope("opt1"):
-		opt_net = Optimizer("opt1")
+	opt_net = Optimizer()
 	
 	snfs = []
 	# Generate the set of SNFs
@@ -143,8 +142,7 @@ def main():
 		if loss < best_loss:
 			best_loss = loss
 			if args.save_model:
-				vars_to_save = [j for j in tf.trainable_variables() if 'opt1' in j.name]
-				saver = tf.train.Saver(vars_to_save)
+				saver = tf.train.Saver(tf.trainable_variables())
 				saver.save(sess, save_path)
 				print "{:>3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, avg_counter)
 
