@@ -54,7 +54,7 @@ class MLP_RELU: ### Remove duplication with mlp.py
 		update = tf.reshape(self.update,[self.num_params,1])
 		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, update)
 		
-		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
+		vars = [i for i in tf.all_variables() if not 'optimizer' in i.name]
 		self.init = tf.initialize_variables(vars)
 		
 		

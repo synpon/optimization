@@ -29,7 +29,7 @@ class Optimizer(object):
 			self.initial_rnn_state = tf.placeholder_with_default(input=tf.zeros([m, num_rnn_layers*rnn_size]), shape=[None, num_rnn_layers*rnn_size])
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
-		with tf.variable_scope("a3c"): ### rename scope
+		with tf.variable_scope("optimizer"):
 			if rnn_type == 'rnn':
 				cell = rnn_cell.BasicRNNCell(rnn_size)
 			elif rnn_type == 'gru':
@@ -99,7 +99,9 @@ class Optimizer(object):
 			updates = res[5].pack()
 			
 			# Total change in the SNF loss
-			self.snf_loss_change = losses[0] - losses[seq_length - 1] ### check
+			# Improvement: 2 - 3 = -1 (small loss)
+			snf_loss_change = losses[seq_length - 1] - losses[0]
+			self.loss_change_sign = tf.sign(losses[seq_length - 1] - losses[0])
 			
 			# Oscillation cost
 			### Ensure this is connected to the rest of the graph
@@ -111,7 +113,7 @@ class Optimizer(object):
 				norm_sum += tf_norm(updates[i,:,:])
 				
 			osc_cost = tf_norm(overall_update)/norm_sum				
-			self.total_loss = self.snf_loss_change + osc_control*osc_cost
+			self.total_loss = snf_loss_change + osc_control*osc_cost
 			
 			#===# Model training #===#
 			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)

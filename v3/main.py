@@ -61,7 +61,7 @@ def main():
 	# Training loop
 	for i in range(num_iterations):
 		batch_losses = []
-		batch_snf_losses = []
+		batch_loss_change_sign = []
 		batch_grads = []
 		batch_counters = []
 		
@@ -84,12 +84,12 @@ def main():
 			
 			res = sess.run([opt_net.new_point,
 							opt_net.rnn_state_out,
-							opt_net.snf_loss_change,
+							opt_net.loss_change_sign,
 							opt_net.total_loss]
 							+ [g for g,v in opt_net.gvs], 
 							feed_dict=feed_dict)
 														
-			new_point, rnn_state_out, snf_loss_change, loss = res[0:4]
+			new_point, rnn_state_out, loss_change_sign, loss = res[0:4]
 			grads_out = res[4:]
 			
 			# Prepare a new state to add to the replay memory
@@ -112,13 +112,12 @@ def main():
 			
 			batch_counters.append(state.counter)
 			batch_losses.append(loss)
-			batch_snf_losses.append(snf_loss_change)
+			batch_loss_change_sign.append(loss_change_sign)
 			batch_grads.append(grads_out)
 		
 		loss = np.mean(batch_losses)
-		sign_loss = np.mean(np.sign(batch_snf_losses))
+		avg_loss_change_sign = np.mean(batch_loss_change_sign)
 		avg_counter = np.mean(batch_counters)
-		avg_loss_change_sign = np.mean(batch_snf_losses)
 
 		total_grads = batch_grads[0]
 		

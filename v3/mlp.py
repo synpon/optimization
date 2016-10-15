@@ -51,7 +51,7 @@ class MLP:
 		self.update = tf.placeholder(tf.float32,[self.num_params,1], 'update')
 		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, self.update)
 		
-		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
+		vars = [i for i in tf.all_variables() if not 'optimizer' in i.name]
 		self.init = tf.initialize_variables(vars)
 		
 		
