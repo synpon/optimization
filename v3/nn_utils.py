@@ -6,7 +6,7 @@ import tensorflow as tf
 from constants import grad_scaling_method
 
 
-def xavier_initializer(dims):
+def xavier_initializer(dims): ### rename?
 	d = np.sqrt(1.0)/np.sqrt(sum(dims))
 	return tf.random_uniform_initializer(minval=-d, maxval=d)
 
@@ -14,7 +14,7 @@ def xavier_initializer(dims):
 def weight_matrix(num_in, num_out):
 	with tf.variable_scope("weight"):
 		# Uses 1 rather than 6 as the fc_layer3 does not have an activation function
-		d = np.sqrt(1.0)/np.sqrt(num_in+num_out) ### should be sqrt(2.0) or sqrt(6.0)?
+		d = np.sqrt(1.0)/np.sqrt(num_in+num_out) ### should be sqrt(2, 3 or 6?)
 		return tf.Variable(tf.random_uniform(shape=[num_in, num_out], minval=-d, maxval=d))
 
 		

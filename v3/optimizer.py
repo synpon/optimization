@@ -101,10 +101,9 @@ class Optimizer(object):
 			# Total change in the SNF loss
 			# Improvement: 2 - 3 = -1 (small loss)
 			snf_loss_change = losses[seq_length - 1] - losses[0]
-			self.loss_change_sign = tf.sign(losses[seq_length - 1] - losses[0])
+			self.loss_change_sign = tf.sign(snf_loss_change)
 			
 			# Oscillation cost
-			### Ensure this is connected to the rest of the graph
 			overall_update = tf.zeros([m,1])
 			norm_sum = 0.0
 				
@@ -112,7 +111,7 @@ class Optimizer(object):
 				overall_update += updates[i,:,:]
 				norm_sum += tf_norm(updates[i,:,:])
 				
-			osc_cost = tf_norm(overall_update)/norm_sum				
+			osc_cost = norm_sum/tf_norm(overall_update)	
 			self.total_loss = snf_loss_change + osc_control*osc_cost
 			
 			#===# Model training #===#

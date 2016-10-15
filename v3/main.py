@@ -73,7 +73,8 @@ def main():
 				snf = random.choice(snfs)
 				state = State(snf, state_ops, sess)
 				
-			### The RNN state is initialised from a zero-matrix?
+			# The RNN state is initially zero but this will become
+			# rarer as old states are put back into the replay memory
 			
 			feed_dict = {opt_net.point: state.point,
 							opt_net.variances: snf.variances, 
@@ -125,7 +126,8 @@ def main():
 				total_grads[k] += batch_grads[j][k]
 		
 		total_grads = [j/batch_size for j in total_grads]
-
+		### replay memory is not working? - counter is static
+		
 		#===# Train the optimizer #===#	
 		# By the derivative sum rule, the average of the derivatives (calculated here)
 		# is identical to the derivative of the average (the usual method).
