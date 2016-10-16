@@ -7,7 +7,7 @@ import numpy as np
 
 from constants import num_iterations, seq_length, save_path, summary_freq, \
     episode_length, replay_mem_start_size, replay_memory_max_size, \
-	num_SNFs, num_rnn_layers, rnn_size, m, net_sync_freq, batch_size, save_freq
+	num_SNFs, num_rnn_layers, rnn_size, m, batch_size
 from snf import SNF, State, StateOps
 from optimizer import Optimizer
 
@@ -127,7 +127,6 @@ def main():
 				total_grads[k] += batch_grads[j][k]
 		
 		total_grads = [j/batch_size for j in total_grads]
-		### replay memory is not working? - counter is static
 		
 		#===# Train the optimizer #===#	
 		# By the derivative sum rule, the average of the derivatives (calculated here)
