@@ -74,6 +74,7 @@ def main():
 				state = State(snf, state_ops, sess)
 				
 			batch_counters.append(state.counter)
+			prev_counter = state.counter
 				
 			# The RNN state is initially zero but this will become
 			# rarer as old states are put back into the replay memory
@@ -98,12 +99,11 @@ def main():
 			state = State(snf, state_ops, sess)
 			state.point = new_point
 			state.rnn_state = rnn_state_out
-			
+			state.counter = prev_counter + seq_length
+
 			# Prevent these attributes from being used until their values are overridden
 			state.loss = None
 			state.grads = None
-			
-			state.counter += seq_length
 				
 			# Only the last state is added. Adding more may result in a loss 
 			# of diversity in the replay memory

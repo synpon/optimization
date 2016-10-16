@@ -27,7 +27,7 @@ num_SNFs = 1000
 osc_control = 0.05 ### unused
 replay_mem_start_size = 5000
 replay_memory_max_size = 100000
-episode_length = 100
+episode_length = 100 # SNF states are reset after this many steps
 net_sync_freq = 150
 
 grad_scaling_methods = ['none','full']
