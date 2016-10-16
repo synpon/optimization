@@ -115,7 +115,8 @@ class Optimizer(object):
 			self.total_loss = snf_loss_change + osc_control*osc_cost
 			
 			#===# Model training #===#
-			opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
+			#opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
+			opt = tf.train.AdamOptimizer()
 			vars = tf.trainable_variables()
 			
 			gvs = opt.compute_gradients(self.total_loss, vars)
