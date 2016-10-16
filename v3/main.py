@@ -73,6 +73,8 @@ def main():
 				snf = random.choice(snfs)
 				state = State(snf, state_ops, sess)
 				
+			batch_counters.append(state.counter)
+				
 			# The RNN state is initially zero but this will become
 			# rarer as old states are put back into the replay memory
 			
@@ -110,7 +112,6 @@ def main():
 			if len(replay_memory) > replay_memory_max_size:
 				replay_memory = replay_memory[-replay_memory_max_size:]
 			
-			batch_counters.append(state.counter)
 			batch_losses.append(loss)
 			batch_loss_change_sign.append(loss_change_sign)
 			batch_grads.append(grads_out)

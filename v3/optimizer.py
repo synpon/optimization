@@ -111,8 +111,10 @@ class Optimizer(object):
 				overall_update += updates[i,:,:]
 				norm_sum += tf_norm(updates[i,:,:])
 				
-			osc_cost = norm_sum/tf_norm(overall_update)	
-			self.total_loss = snf_loss_change + osc_control*osc_cost
+			osc_cost = norm_sum/tf_norm(overall_update)	# > 1
+			#self.total_loss = snf_loss_change + osc_control*osc_cost
+			
+			self.total_loss = snf_loss_change*tf.pow(osc_cost,5*tf.tanh(100*snf_loss_change))
 			
 			#===# Model training #===#
 			#opt = tf.train.RMSPropOptimizer(0.01,momentum=0.5)
