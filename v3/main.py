@@ -154,7 +154,7 @@ def main():
 			if args.save_model:	
 			
 				# Evaluate on the MNIST MLP			
-				if mlp_validation:
+				if mlp_validation and i > 50:
 					rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 				
 					for j in range(net.batches):
@@ -181,12 +181,13 @@ def main():
 						save_allowed = False
 				
 				else:
+					accuracy = 0.0
 					save_allowed = True
 				
 				if save_allowed:
 					saver = tf.train.Saver(tf.trainable_variables())
 					saver.save(sess, save_path)
-					print "{:>3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, avg_counter)
+					print "{:>3}{:>10.3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, accuracy, avg_counter)
 
 if __name__ == "__main__":
 	main()

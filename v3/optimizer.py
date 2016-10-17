@@ -53,7 +53,7 @@ class Optimizer(object):
 			
 			snf_loss_ta = tf.TensorArray(dtype=tf.float32, size=seq_length)
 			update_ta = tf.TensorArray(dtype=tf.float32, size=seq_length)
-			rnn_state = tf.zeros([m,rnn_size])
+			rnn_state = tf.zeros([m,rnn_size*num_rnn_layers])
 			
 			loop_vars = [time, point, snf_grads, rnn_state, snf_loss_ta, update_ta, self.hyperplanes, self.variances, self.weights]
 			
@@ -101,7 +101,7 @@ class Optimizer(object):
 			# Total change in the SNF loss
 			# Improvement: 2 - 3 = -1 (small loss)
 			snf_loss_change = losses[seq_length - 1] - losses[0]
-			snf_loss_change = tf.maximum(snf_loss_change,2*snf_loss_change) # Asymmetric loss
+			snf_loss_change = tf.maximum(snf_loss_change,2.5*snf_loss_change) # Asymmetric loss
 			self.loss_change_sign = tf.sign(snf_loss_change)
 			
 			# Oscillation cost
