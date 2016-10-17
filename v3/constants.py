@@ -19,6 +19,7 @@ m = 30 # Number of dimensions
 var_size = 0.2
 
 #===# Training constants #===#
+mlp_validation = True
 batch_size = 250
 seq_length = 10
 num_iterations = 10000

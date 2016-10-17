@@ -3,13 +3,16 @@ import argparse
 import random
 
 import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+
 import numpy as np
 
 from constants import num_iterations, seq_length, save_path, summary_freq, \
     episode_length, replay_mem_start_size, replay_memory_max_size, \
-	num_SNFs, num_rnn_layers, rnn_size, m, batch_size
+	num_SNFs, num_rnn_layers, rnn_size, m, batch_size, mlp_validation
 from snf import SNF, State, StateOps
 from optimizer import Optimizer
+from mlp import MLP
 
 """
 rm nohup.out; nohup python -u main.py -s &
@@ -34,6 +37,9 @@ def main():
 	
 	opt_net = Optimizer()
 	
+	mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+	net = MLP(opt_net)
+	
 	snfs = []
 	# Generate the set of SNFs
 	print "Generating SNFs..."
@@ -56,6 +62,7 @@ def main():
 	sess.run(init)
 	
 	best_loss = np.float('inf')
+	best_accuracy = 0
 
 	# Training loop
 	for i in range(num_iterations):
@@ -143,10 +150,43 @@ def main():
 		# Save model
 		if loss < best_loss:
 			best_loss = loss
-			if args.save_model:
-				saver = tf.train.Saver(tf.trainable_variables())
-				saver.save(sess, save_path)
-				print "{:>3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, avg_counter)
+			
+			if args.save_model:	
+			
+				# Evaluate on the MNIST MLP			
+				if mlp_validation:
+					rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
+				
+					for j in range(net.batches):
+						batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+						
+						# Compute gradients
+						grads = sess.run(net.grads, feed_dict={net.x:batch_x, net.y_:batch_y})
+						
+						# Compute update
+						feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
+									net.opt_net.initial_rnn_state: rnn_state}
+						[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
+			
+						# Update MLP parameters
+						_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})
+						
+					accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
+					print "Opt net accuracy: %f" % accuracy
+					
+					if accuracy > best_accuracy:
+						best_accuracy = accuracy
+						save_allowed = True
+					else:
+						save_allowed = False
+				
+				else:
+					save_allowed = True
+				
+				if save_allowed:
+					saver = tf.train.Saver(tf.trainable_variables())
+					saver.save(sess, save_path)
+					print "{:>3}{:>10.3}{:>10.3}{:>10.3} (S)".format(i, loss, avg_loss_change_sign, avg_counter)
 
 if __name__ == "__main__":
 	main()
