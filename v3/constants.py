@@ -10,7 +10,7 @@ summary_freq = 5
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
-rnn_size = 20
+rnn_size = 40
 num_rnn_layers = 1 ### Two layers doesn't work
 
 #===# SNF constants #===#

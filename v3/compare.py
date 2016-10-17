@@ -63,7 +63,7 @@ print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
 for i in range(1):
-	sess.run(net.init) # Reset parameters of net to be trained
+	sess.run(net.init) # Reset parameters of the net to be trained
 
 	rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 

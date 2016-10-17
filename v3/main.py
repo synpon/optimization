@@ -155,6 +155,7 @@ def main():
 			
 				# Evaluate on the MNIST MLP			
 				if mlp_validation and i > 50:
+					sess.run(net.init) # Reset parameters of the net to be trained
 					rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 				
 					for j in range(net.batches):
