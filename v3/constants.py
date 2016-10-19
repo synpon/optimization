@@ -10,8 +10,8 @@ summary_freq = 5
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru','lstm']
 rnn_type = rnn_types[1]
-rnn_size = 40
-num_rnn_layers = 1 ### Two layers doesn't work
+rnn_size = 20
+num_rnn_layers = 1
 
 #===# SNF constants #===#
 k = 10 # Number of hyperplanes
@@ -19,7 +19,6 @@ m = 30 # Number of dimensions
 var_size = 0.2
 
 #===# Training constants #===#
-mlp_validation = True
 batch_size = 250
 seq_length = 10
 num_iterations = 10000
