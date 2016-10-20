@@ -32,12 +32,14 @@ class MLP_RELU: ### Remove duplication with mlp.py
 		tf.scalar_summary('loss', self.loss)
 
 		sgd_optimizer = tf.train.GradientDescentOptimizer(0.1)
+		rmsprop_optimizer = tf.train.RMSPropOptimizer(0.001)
 		adam_optimizer = tf.train.AdamOptimizer()
 		
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grad_var_pairs = [i for i in grad_var_pairs if 'mnist/' in i[1].name]
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
+		self.rmsprop_train_step = rmsprop_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 	
 		#===# Opt net #===#
