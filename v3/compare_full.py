@@ -17,10 +17,9 @@ tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
 http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 """
 
-runs = 5
+runs = 10
 
 sess = tf.Session()
-	
 opt_net = Optimizer()
 	
 # Load model
@@ -31,48 +30,37 @@ net = MLP(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
-
-if tf.gfile.Exists(summaries_dir):
-	tf.gfile.DeleteRecursively(summaries_dir)
-tf.gfile.MakeDirs(summaries_dir)
-
-# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
-merged = tf.merge_all_summaries()
-
-sgd_writer = tf.train.SummaryWriter(summaries_dir + '/sgd')
-rmsprop_writer = tf.train.SummaryWriter(summaries_dir + '/rmsprop')
-adam_writer = tf.train.SummaryWriter(summaries_dir + '/adam')
-opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
+results = np.zeros([net.batches,4])
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
-def test_inbuilt_optimizer(writer,optimizer):
+def test_inbuilt_optimizer(opt_step, index):
 	for i in range(runs):
 		sess.run(net.init) # Reset parameters of net to be trained
 		for j in range(net.batches):
 			batch_x, batch_y = mnist.train.next_batch(net.batch_size)
-			summary,_ = sess.run([merged, optimizer], feed_dict={net.x: batch_x, net.y_: batch_y})
-			writer.add_summary(summary,j)
-		accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
+			train_loss,_ = sess.run([net.loss, opt_step], feed_dict={net.x: batch_x, net.y_: batch_y})
+			results[j,index] += train_loss
+		#accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})	
 	return
 	
-test_inbuilt_optimizer(sgd_writer, net.sgd_train_step)
+test_inbuilt_optimizer(net.sgd_train_step,0)
 print "SGD complete"
-test_inbuilt_optimizer(rmsprop_writer, net.rmsprop_train_step)
+test_inbuilt_optimizer(net.rmsprop_train_step,1)
 print "RMSProp complete"
-test_inbuilt_optimizer(adam_writer, net.adam_train_step)
+test_inbuilt_optimizer(net.adam_train_step,2)
 print "Adam complete"
 
 for i in range(runs):
 	sess.run(net.init) # Reset parameters of the net to be trained
-
 	rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
-
+	print i
 	for j in range(net.batches):
 		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
 		
 		# Compute gradients
-		summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+		train_loss, grads = sess.run([net.loss, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+		results[j,3] += train_loss
 		
 		# Compute update
 		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
@@ -80,14 +68,12 @@ for i in range(runs):
 		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
 		
 		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
-		opt_net_writer.add_summary(summary,j)
+		sess.run([net.opt_net_train_step], feed_dict={net.update:update})
 		
-	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
-	print "Opt net accuracy: %f" % accuracy
+	#accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
+	#print "Opt net accuracy: %f" % accuracy
+print "Opt net complete"
 	
-sgd_writer.close()
-rmsprop_writer.close()
-adam_writer.close()
-opt_net_writer.close()
+results /= runs
 
+np.savetxt("results.csv", results, delimiter=",")

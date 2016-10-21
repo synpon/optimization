@@ -216,8 +216,7 @@ def run_epoch(session, m, data, eval_op, verbose=False):
 	costs = 0.0
 	iters = 0
 	state = m.initial_state.eval()
-	for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size,
-																										m.num_steps)):
+	for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size, m.num_steps)):
 		cost, state, _ = session.run([m.cost, m.final_state, eval_op],
 																 {m.input_data: x,
 																	m.targets: y,
@@ -247,8 +246,7 @@ def main(_):
 			lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0)
 			m.assign_lr(session, config.learning_rate * lr_decay)
 
-			train_perplexity = run_epoch(session, m, train_data, m.train_op,
-																	 verbose=True)
+			train_perplexity = run_epoch(session, m, train_data, m.train_op, verbose=True)
 			print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
 
 if __name__ == "__main__":
