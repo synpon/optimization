@@ -17,7 +17,7 @@ tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
 http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 """
 
-runs = 10
+runs = 100
 
 sess = tf.Session()
 opt_net = Optimizer()
@@ -30,7 +30,7 @@ net = MLP(opt_net)
 sess.run(net.init)
 
 print "\nRunning optimizer comparison..."
-results = np.zeros([net.batches,4])
+results = np.zeros([net.batches,5])
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
@@ -41,14 +41,15 @@ def test_inbuilt_optimizer(opt_step, index):
 			batch_x, batch_y = mnist.train.next_batch(net.batch_size)
 			train_loss,_ = sess.run([net.loss, opt_step], feed_dict={net.x: batch_x, net.y_: batch_y})
 			results[j,index] += train_loss
+			results[j,0] = j
 		#accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})	
 	return
 	
-test_inbuilt_optimizer(net.sgd_train_step,0)
+test_inbuilt_optimizer(net.sgd_train_step,1)
 print "SGD complete"
-test_inbuilt_optimizer(net.rmsprop_train_step,1)
+test_inbuilt_optimizer(net.rmsprop_train_step,2)
 print "RMSProp complete"
-test_inbuilt_optimizer(net.adam_train_step,2)
+test_inbuilt_optimizer(net.adam_train_step,3)
 print "Adam complete"
 
 for i in range(runs):
@@ -60,7 +61,7 @@ for i in range(runs):
 		
 		# Compute gradients
 		train_loss, grads = sess.run([net.loss, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
-		results[j,3] += train_loss
+		results[j,4] += train_loss
 		
 		# Compute update
 		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 

@@ -132,10 +132,10 @@ class Optimizer(object):
 			self.input_grads = tf.placeholder(tf.float32, [1,None,1], 'input_grads') ### Remove first dimension?
 			input_grads = tf.squeeze(self.input_grads, [0])
 			
-			with tf.variable_scope("o1", reuse=True) as scope:
+			with tf.variable_scope("o1", reuse=True) as scope: ### check
 				h, self.rnn_state_out_compare = self.cell(input_grads, self.initial_rnn_state)
 			
-				W = tf.get_variable("W")
+				W = tf.get_variable("W")  ### check
 				update = tf.matmul(h,W)
 				
 				update = tf.reshape(update, [-1,1])

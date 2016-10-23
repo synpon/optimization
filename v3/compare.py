@@ -23,8 +23,7 @@ opt_net = Optimizer()
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-net = MLP_RELU(opt_net)
-sess.run(net.init)
+net = MLP(opt_net)
 
 print "\nRunning optimizer comparison..."
 
@@ -42,14 +41,13 @@ opt_net_writer = tf.train.SummaryWriter(summaries_dir + '/opt_net')
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # SGD
-for i in range(1):
-	sess.run(net.init) # Reset parameters of net to be trained
-	for j in range(net.batches):
-		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
-		summary,_ = sess.run([merged, net.sgd_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
-		sgd_writer.add_summary(summary,j)
-	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
-	print "SGD accuracy: %f" % accuracy
+sess.run(net.init) # Reset parameters of net to be trained
+for i in range(net.batches):
+	batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+	summary,_ = sess.run([merged, net.sgd_train_step], feed_dict={net.x: batch_x, net.y_: batch_y})
+	sgd_writer.add_summary(summary,i)
+accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
+print "SGD accuracy: %f" % accuracy
 sgd_writer.close()
 
 # Adam
@@ -62,26 +60,24 @@ accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: m
 print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
-for i in range(1):
-	sess.run(net.init) # Reset parameters of the net to be trained
+sess.run(net.init) # Reset parameters of the net to be trained
+rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 
-	rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
-
-	for j in range(net.batches):
-		batch_x, batch_y = mnist.train.next_batch(net.batch_size)
-		
-		# Compute gradients
-		summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
-		
-		# Compute update
-		feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
-					net.opt_net.initial_rnn_state: rnn_state}
-		[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
-		
-		# Update MLP parameters
-		_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
-		opt_net_writer.add_summary(summary,j)
-		
-	accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
-	print "Opt net accuracy: %f" % accuracy
+for i in range(net.batches):
+	batch_x, batch_y = mnist.train.next_batch(net.batch_size)
+	
+	# Compute gradients
+	grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+	
+	# Compute update
+	feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
+				net.opt_net.initial_rnn_state: rnn_state}
+	[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
+	
+	# Update MLP parameters
+	_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
+	#opt_net_writer.add_summary(summary,i)
+	
+accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
+print "Opt net accuracy: %f" % accuracy
 opt_net_writer.close()
