@@ -23,7 +23,7 @@ opt_net = Optimizer()
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-net = MLP(opt_net)
+net = MLP_RELU(opt_net)
 
 print "\nRunning optimizer comparison..."
 
@@ -60,6 +60,7 @@ accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: m
 print "Adam accuracy: %f" % accuracy
 adam_writer.close()
 
+# GRU optimizer
 sess.run(net.init) # Reset parameters of the net to be trained
 rnn_state = np.zeros([net.num_params, net.opt_net.cell.state_size])
 
@@ -67,7 +68,7 @@ for i in range(net.batches):
 	batch_x, batch_y = mnist.train.next_batch(net.batch_size)
 	
 	# Compute gradients
-	grads = sess.run([net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
+	summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
 	
 	# Compute update
 	feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
@@ -76,7 +77,7 @@ for i in range(net.batches):
 	
 	# Update MLP parameters
 	_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
-	#opt_net_writer.add_summary(summary,i)
+	opt_net_writer.add_summary(summary,i)
 	
 accuracy = sess.run(net.accuracy, feed_dict={net.x: mnist.test.images, net.y_: mnist.test.labels})
 print "Opt net accuracy: %f" % accuracy

@@ -17,7 +17,7 @@ tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
 http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 """
 
-runs = 100
+runs = 1 ###
 
 sess = tf.Session()
 opt_net = Optimizer()

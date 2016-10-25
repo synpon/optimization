@@ -10,8 +10,8 @@ def max_pool_2x2(tensor_in):
 
 class CNN:
 	def __init__(self, opt_net):
-		self.batch_size = 1 # 32
-		self.batches = 10000 ### Adjust
+		self.batch_size = 64
+		self.batches = 100
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])

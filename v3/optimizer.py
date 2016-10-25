@@ -7,7 +7,7 @@ import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, inv_scale_grads
 from constants import rnn_size, num_rnn_layers, k, m, rnn_type, grad_scaling_method, \
-		episode_length, loss_noise, osc_control, seq_length
+		episode_length, loss_noise, loss_asymmetry, seq_length
 import snf
 from nn_utils import tf_print
 
@@ -101,7 +101,7 @@ class Optimizer(object):
 			# Total change in the SNF loss
 			# Improvement: 2 - 3 = -1 (small loss)
 			snf_loss_change = losses[seq_length - 1] - losses[0]
-			snf_loss_change = tf.maximum(snf_loss_change,2*snf_loss_change) # Asymmetric loss
+			snf_loss_change = tf.maximum(snf_loss_change,loss_asymmetry*snf_loss_change) # Asymmetric loss
 			self.loss_change_sign = tf.sign(snf_loss_change)
 			
 			# Oscillation cost
@@ -132,10 +132,10 @@ class Optimizer(object):
 			self.input_grads = tf.placeholder(tf.float32, [1,None,1], 'input_grads') ### Remove first dimension?
 			input_grads = tf.squeeze(self.input_grads, [0])
 			
-			with tf.variable_scope("o1", reuse=True) as scope: ### check
+			with tf.variable_scope("o1", reuse=True) as scope:
 				h, self.rnn_state_out_compare = self.cell(input_grads, self.initial_rnn_state)
 			
-				W = tf.get_variable("W")  ### check
+				W = tf.get_variable("W")
 				update = tf.matmul(h,W)
 				
 				update = tf.reshape(update, [-1,1])

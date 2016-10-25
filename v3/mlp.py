@@ -6,7 +6,7 @@ from constants import rnn_size, m
 class MLP:
 	def __init__(self, opt_net):
 		self.opt_net = opt_net
-		self.batch_size = 1 ### 32
+		self.batch_size = 64
 		self.batches = 1000
 		self.num_params = 7850
 
@@ -55,5 +55,9 @@ class MLP:
 		
 		vars = [i for i in tf.all_variables() if not 'optimizer' in i.name]
 		self.init = tf.initialize_variables(vars)
+		
+		#===# Model training #===#
+		
+		
 		
 		

@@ -5,16 +5,16 @@ from constants import rnn_size
 
 # https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/multilayer_perceptron.py
 
-class MLP_RELU: ### Remove duplication with mlp.py
+class MLP_RELU:
 	def __init__(self, opt_net):
 		self.opt_net = opt_net
-		self.batch_size = 1 ### 32
-		self.batches = 1000
+		self.batch_size = 64
+		self.batches = 100
 		self.num_params = 466442#tf.reduce_prod(tf.shape(grads)) ### calculate num_params automatically
 
 		# Define architecture
-		self.x = tf.placeholder(tf.float32, [None, 784])
-		self.y_ = tf.placeholder(tf.float32, [None, 10])
+		self.x = tf.placeholder(tf.float32, [None, 784], 'x')
+		self.y_ = tf.placeholder(tf.float32, [None, 10], 'y')
 		
 		# The scope is used to identify the right gradients to optimize
 		with tf.variable_scope("mnist"):
@@ -52,7 +52,7 @@ class MLP_RELU: ### Remove duplication with mlp.py
 		self.grads = tf.concat(0,grads)
 		self.trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 		
-		self.update = tf.placeholder(tf.float32,[self.num_params,1])
+		self.update = tf.placeholder(tf.float32,[self.num_params,1], 'update')
 		update = tf.reshape(self.update,[self.num_params,1])
 		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, update)
 		
