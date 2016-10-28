@@ -1,5 +1,3 @@
-#rm nohup.out; nohup python -u a3c.py -s &
-#kill -INT 10160
 from __future__ import division
 
 import tensorflow as tf
@@ -10,7 +8,7 @@ import threading
 import signal
 import argparse
 
-from ac_network import A3CRNN, A3CFF
+from ac_network import A3CRNN
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
 from snf import SNF
@@ -18,8 +16,12 @@ from diagnostics import proportion_zeros
 
 from constants import num_threads, max_time_steps, \
 	log_file, rmsp_epsilon, rmsp_momentum, rmsp_alpha, grad_norm_clip, \
-	use_rnn, summary_freq, save_path
+	summary_freq, save_path
 
+"""
+rm nohup.out; nohup python -u a3c.py -s &
+kill -INT 10160
+"""
 	
 parser = argparse.ArgumentParser()
 parser.add_argument('--save', '-s', dest='save_model', action='store_true')
@@ -72,20 +74,14 @@ def train_function(parallel_index):
 		
 		# Printing for each thread allows synchronization and divergence to be detected
 		if count % summary_freq == 0:
-			if use_rnn:
-				print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
-			else:
-				print "%.4f\t\t %.3g\t %.3f\t %d" % (np.mean(discounted_rewards), np.mean(losses), sess.run(global_network.W1)[0][0], global_t)
+			print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
 			discounted_rewards = []
 			losses = []
 			
 			
 with graph.as_default(), tf.Session() as sess:
 	
-	if use_rnn:
-		global_network = A3CRNN(num_trainable_vars)
-	else:
-		global_network = A3CFF(num_trainable_vars)
+	global_network = A3CRNN(num_trainable_vars)
 		
 	learning_rate_input = tf.placeholder("float")
 
@@ -99,7 +95,6 @@ with graph.as_default(), tf.Session() as sess:
 	train_thread_classes = []
 	
 	snf = SNF()
-	#proportion_zeros(snf)
 
 	for i in range(num_threads):
 		train_thread_class = A3CTrainingthread(i, global_network,

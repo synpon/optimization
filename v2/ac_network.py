@@ -10,68 +10,7 @@ from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method
 
 
 # Actor-Critic Network (policy and value network)
-class A3CNet(object):
-
-	# Create placeholder variables in order to calculate the loss
-	def prepare_loss(self, entropy_beta):
-	
-		# Taken action (input for policy)
-		self.a = tf.placeholder(tf.float32, [None,m,1], 'a')
-	
-		# Temporal difference (R-V) (input for policy)
-		self.td = tf.placeholder(tf.float32, [None], 'td')
-		
-		# Entropy of the policy
-		# Entropy encourages exploration, which it is positively correlated with. 
-		# Therefore, higher entropy makes the loss function lower.
-		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
-
-		# Policy loss (output)
-		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
-
-		# R (input for value)
-		self.r = tf.placeholder(tf.float32, [None], 'r')
-
-		# Learning rate for critic is half of actor's, so multiply by 0.5
-		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
-
-		#self.total_loss = policy_loss + value_loss
-		#self.total_loss = scale_grads(policy_loss + value_loss)
-		self.total_loss = tf.clip_by_value(policy_loss + value_loss, -2.0, 2.0) ### Fix the underlying problem that causes occasional large losses
-
-	def sync_from(self, src_network, name=None):
-		src_vars = src_network.trainable_vars
-		dst_vars = self.trainable_vars
-
-		sync_ops = []
-		with tf.op_scope([], name, "A3CNet") as name:
-			for(src_var, dst_var) in zip(src_vars, dst_vars):
-				sync_op = tf.assign(dst_var, src_var)
-				sync_ops.append(sync_op)
-
-			return tf.group(*sync_ops, name=name)
-			
-
-	# Update the parameters of another network (eg an MLP)
-	def update_params(self, vars, h):
-		total = 0
-		ret = []
-
-		for i,v in enumerate(vars):
-			size = np.prod(list(v.get_shape()))
-			size = tf.to_int32(size)
-			var_grads = tf.slice(h,begin=[total,0],size=[size,-1])
-			var_grads = tf.reshape(var_grads,v.get_shape())
-			
-			#if not grad_clip_value is None:
-			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
-			
-			ret.append(v.assign_add(var_grads))
-			size += total		
-		return tf.group(*ret)
-		
-
-class A3CRNN(A3CNet):
+class A3CRNN(object):
 
 	def __init__(self, num_trainable_vars):
 		# Input
@@ -142,7 +81,62 @@ class A3CRNN(A3CNet):
 		
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]		
 		self.reset_rnn_state()
+
+	# Create placeholder variables in order to calculate the loss
+	def prepare_loss(self, entropy_beta):
+	
+		# Taken action (input for policy)
+		self.a = tf.placeholder(tf.float32, [None,m,1], 'a')
+	
+		# Temporal difference (R-V) (input for policy)
+		self.td = tf.placeholder(tf.float32, [None], 'td')
 		
+		# Entropy of the policy
+		# Entropy encourages exploration, which it is positively correlated with. 
+		# Therefore, higher entropy makes the loss function lower.
+		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
+
+		# Policy loss (output)
+		policy_loss = tf.nn.l2_loss(self.mean - self.a)*self.td - entropy*entropy_beta
+
+		# R (input for value)
+		self.r = tf.placeholder(tf.float32, [None], 'r')
+
+		# Learning rate for critic is half of actor's, so multiply by 0.5
+		value_loss = 0.5 * tf.nn.l2_loss(self.r - self.v)
+
+		self.total_loss = policy_loss + value_loss
+
+	def sync_from(self, src_network, name=None):
+		src_vars = src_network.trainable_vars
+		dst_vars = self.trainable_vars
+
+		sync_ops = []
+		with tf.op_scope([], name, "A3CNet") as name:
+			for(src_var, dst_var) in zip(src_vars, dst_vars):
+				sync_op = tf.assign(dst_var, src_var)
+				sync_ops.append(sync_op)
+
+			return tf.group(*sync_ops, name=name)
+			
+
+	# Update the parameters of another network (eg an MLP)
+	def update_params(self, vars, h):
+		total = 0
+		ret = []
+
+		for i,v in enumerate(vars):
+			size = np.prod(list(v.get_shape()))
+			size = tf.to_int32(size)
+			var_grads = tf.slice(h,begin=[total,0],size=[size,-1])
+			var_grads = tf.reshape(var_grads,v.get_shape())
+			
+			#if not grad_clip_value is None:
+			#	var_grads = tf.clip_by_value(var_grads, -grad_clip_value, grad_clip_value)
+			
+			ret.append(v.assign_add(var_grads))
+			size += total		
+		return tf.group(*ret)		
 		
 	# Updates the RNN state
 	def run_policy_and_value(self, sess, state, snf, state_ops):	
@@ -181,61 +175,5 @@ class A3CRNN(A3CNet):
 		
 	def reset_rnn_state(self):
 		self.rnn_state_out = np.zeros([m,self.cell.state_size])
-		
-		
-# Feed-forward
-class A3CFF(A3CNet): ### Still uses updates for the value function
-	def __init__(self, num_trainable_vars):
 	
-		# Input
-		# Third dimension is the number of features
-		self.grads = tf.placeholder(tf.float32, [None,m,1], 'grads')
-		self.update = tf.placeholder(tf.float32, [None,m,1], 'update') # Coordinate update
-		self.rand = tf.placeholder_with_default(input=0.0, shape=[])
-
-		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
-		with tf.variable_scope("a3c"):
-			# fc_layer not used in order to extract W1 more easily
-			self.W_m = weight_matrix(1,1) # Magnitude
-			self.W_p = weight_matrix(1,1) # Probability of being positive
-			
-			# Greater than does not have a gradient - approximated with tanh
-			self.W1 = self.W_m*(tf.nn.tanh(self.rand - self.W_p))
-			
-			self.b1 = bias_vector(1,1)
-		
-			self.W2 = weight_matrix(1,1)
-			self.b2 = bias_vector(1,1)
-
-			# policy
-			self.mean = tf.mul(self.grads, self.W1) + self.b1
-			self.variance = tf.maximum(0.01,tf.nn.relu(tf.mul(self.grads, self.W2) + self.b2)) # softplus causes NaNs in FF
-			
-			# value - linear output layer
-			grads_and_update = tf.concat(2, [self.grads, self.update])
-
-			# Twice as many inputs since grads and update are concatenated to make the input
-			v_h = fc_layer(grads_and_update, num_in=2, num_out=10, activation_fn=tf.nn.relu)
-			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
-
-		self.v = tf.reduce_mean(v) # Average over dimensions and convert to scalar
-		
-		if num_trainable_vars[0] == None:
-			num_trainable_vars[0] = len(tf.trainable_variables())
-		
-		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]
-		
-	def run_policy(self, sess, grads):
-		rand = random.uniform(-1,1)
-		mean, variance = sess.run([self.mean,self.variance], feed_dict={self.grads:grads, self.rand:rand})
-		variance = np.maximum(variance,0.01)
-		return mean, variance
-
-	def run_value(self, sess, grads, update):
-		rand = random.uniform(-1,1)
-		v_out = sess.run(self.v, feed_dict={self.grads:grads, self.update:update, self.rand:rand})
-		return np.abs(v_out) # output is a scalar
-		
-
-		
 		

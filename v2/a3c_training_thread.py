@@ -5,9 +5,9 @@ import numpy as np
 import random
 
 from accum_trainer import AccumTrainer
-from ac_network import A3CRNN, A3CFF
+from ac_network import A3CRNN
 from snf import SNF, State, StateOps
-from constants import local_t_max, entropy_beta, use_rnn, m, discount_rate, \
+from constants import local_t_max, entropy_beta, m, discount_rate, \
 						termination_prob, max_time_steps, lr_high, lr_low
 
 
@@ -29,12 +29,9 @@ class A3CTrainingthread(object):
 		self.state_ops = StateOps()
 		self.episode_rewards = []
 		
-		if use_rnn:
-			#initializer = tf.random_uniform_initializer(-0.1, 0.1)		
-			with tf.variable_scope("model"+str(thread_index), reuse=None):#, initializer=initializer):
-				self.local_network = A3CRNN(num_trainable_vars)
-		else:
-			self.local_network = A3CFF(num_trainable_vars)
+		#initializer = tf.random_uniform_initializer(-0.1, 0.1)		
+		with tf.variable_scope("model"+str(thread_index), reuse=None):#, initializer=initializer):
+			self.local_network = A3CRNN(num_trainable_vars)
 			
 		self.local_network.prepare_loss(entropy_beta)
 
@@ -49,9 +46,6 @@ class A3CTrainingthread(object):
 
 		self.sync = self.local_network.sync_from(global_network)
 		self.local_t = 0
-		
-		if not use_rnn:
-			self.W = global_network.W1
 			
 		self.snf = SNF() # Generate a new landscape
 		self.state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
@@ -104,9 +98,9 @@ class A3CTrainingthread(object):
 				reward = 0
 			else:
 				reward = np.sign(prev_snf_loss - snf_loss)
+				
 			prev_snf_loss = snf_loss
 			
-			### Consider making the reward the change in loss?
 			self.episode_rewards.append(reward)
 			rewards.append(reward)
 			snf_losses.append(-reward)
