@@ -1,18 +1,18 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_size, m
+from constants import rnn_size, m
 
 class MLP:
 	def __init__(self, opt_net):
 		self.opt_net = opt_net
-		self.batch_size = 1 ### 32
+		self.batch_size = 64
 		self.batches = 1000
 		self.num_params = 7850
 
 		# Define architecture
-		self.x = tf.placeholder(tf.float32, [None, 784])
-		self.y_ = tf.placeholder(tf.float32, [None, 10])
+		self.x = tf.placeholder(tf.float32, [None, 784], 'x')
+		self.y_ = tf.placeholder(tf.float32, [None, 10], 'y')
 		
 		# The scope is used to identify the right gradients to optimize
 		with tf.variable_scope("mnist"):
@@ -29,12 +29,14 @@ class MLP:
 		tf.scalar_summary('loss', self.loss)
 
 		sgd_optimizer = tf.train.GradientDescentOptimizer(0.1)
+		rmsprop_optimizer = tf.train.RMSPropOptimizer(0.001)
 		adam_optimizer = tf.train.AdamOptimizer()
 		
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grad_var_pairs = [i for i in grad_var_pairs if 'mnist/' in i[1].name]
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
+		self.rmsprop_train_step = rmsprop_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 	
 		#===# Opt net #===#
@@ -48,14 +50,9 @@ class MLP:
 		self.grads = tf.concat(0,grads)
 		self.trainable_variables = [i for i in tf.trainable_variables() if 'mnist/' in i.name]		
 
-		#else:
-		#	update = tf.matmul(grads, opt_net.W1) + opt_net.b1
-
-		self.update = tf.placeholder(tf.float32,[1,self.num_params,1])
-		update = tf.reshape(self.update,[self.num_params,1])
-		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, update)
+		self.update = tf.placeholder(tf.float32,[self.num_params,1], 'update')
+		self.opt_net_train_step = self.opt_net.update_params(self.trainable_variables, self.update)
 		
-		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
+		vars = [i for i in tf.all_variables() if not 'optimizer' in i.name]
 		self.init = tf.initialize_variables(vars)
-		
-		
+	

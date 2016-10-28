@@ -1,7 +1,7 @@
 from __future__ import division
 
 import tensorflow as tf
-from constants import use_rnn, rnn_size
+from constants import rnn_size
 
 # https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
 
@@ -10,8 +10,8 @@ def max_pool_2x2(tensor_in):
 
 class CNN:
 	def __init__(self, opt_net):
-		self.batch_size = 1 # 32
-		self.batches = 10000 ### Adjust
+		self.batch_size = 64
+		self.batches = 100
 
 		# Define architecture
 		self.x = tf.placeholder(tf.float32, [None, 784])
@@ -49,12 +49,14 @@ class CNN:
 		tf.scalar_summary('loss', self.loss)
 
 		sgd_optimizer = tf.train.GradientDescentOptimizer(0.1)
+		rmsprop_optimizer = tf.train.RMSPropOptimizer(0.001)
 		adam_optimizer = tf.train.AdamOptimizer()
 		
 		grad_var_pairs = sgd_optimizer.compute_gradients(self.loss)
 		grad_var_pairs = [i for i in grad_var_pairs if 'mnist/' in i[1].name]
 		
 		self.sgd_train_step = sgd_optimizer.apply_gradients(grad_var_pairs)
+		self.rmsprop_train_step = rmsprop_optimizer.apply_gradients(grad_var_pairs)
 		self.adam_train_step = adam_optimizer.apply_gradients(grad_var_pairs)
 	
 		#===# Opt net #===#
@@ -81,5 +83,4 @@ class CNN:
 		
 		vars = [i for i in tf.all_variables() if not 'a3c' in i.name]
 		self.init = tf.initialize_variables(vars)
-		
 		

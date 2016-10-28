@@ -190,7 +190,7 @@ class BasicRNNCell(RNNCell):
 
   def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._activation = activation
 
@@ -214,7 +214,7 @@ class GRUCell(RNNCell):
 
   def __init__(self, num_units, input_size=None, activation=tf.nn.tanh):
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._activation = activation
 
@@ -282,11 +282,11 @@ class BasicLSTMCell(RNNCell):
       activation: Activation function of the inner states.
     """
     if not state_is_tuple:
-      logging.warn(
+      tf.logging.warn(
           "%s: Using a concatenated state is slower and will soon be "
           "deprecated.  Use state_is_tuple=True." % self)
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._forget_bias = forget_bias
     self._state_is_tuple = state_is_tuple
@@ -414,11 +414,11 @@ class LSTMCell(RNNCell):
       activation: Activation function of the inner states.
     """
     if not state_is_tuple:
-      logging.warn(
+      tf.logging.warn(
           "%s: Using a concatenated state is slower and will soon be "
           "deprecated.  Use state_is_tuple=True." % self)
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     self._num_units = num_units
     self._use_peepholes = use_peepholes
     self._cell_clip = cell_clip
@@ -603,7 +603,7 @@ class InputProjectionWrapper(RNNCell):
       TypeError: if cell is not an RNNCell.
     """
     if input_size is not None:
-      logging.warn("%s: The input_size parameter is deprecated." % self)
+      tf.logging.warn("%s: The input_size parameter is deprecated." % self)
     if not isinstance(cell, RNNCell):
       raise TypeError("The parameter cell is not RNNCell.")
     self._cell = cell
@@ -885,11 +885,10 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
   # Now the computation.
   with tf.variable_scope(scope or "Linear"):
     rand = tf.random_uniform([total_arg_size, output_size], minval=-1.0, maxval=1.0)
-	### Put initializers back to normal?
-    W_p = tf.get_variable("W_p", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
-    W_m = tf.get_variable("W_m", [total_arg_size, output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
+    W_m = tf.get_variable("W_m", [total_arg_size, output_size], initializer=xavier_initializer([total_arg_size, output_size]))
+    W_p = tf.get_variable("W_p", [total_arg_size, output_size], initializer=xavier_initializer([total_arg_size, output_size]))
     # Element-wise multiplication
-    matrix = tf.mul(W_m,(tf.nn.tanh(rand - W_p)))
+    matrix = tf.mul(tf.square(W_m),(tf.nn.tanh(rand - W_p)))
     #matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
@@ -901,10 +900,10 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
     #    "Bias", [output_size],
     #    initializer=tf.constant_initializer(bias_start))
 	
-    rand2 = tf.random_uniform([output_size], minval=-1.0, maxval=1.0) 
-    b_p = tf.get_variable("b_p", [output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
-    b_m = tf.get_variable("b_m", [output_size])#, initializer=xavier_initializer([total_arg_size, output_size]))
+    #rand2 = tf.random_uniform([output_size], minval=-1.0, maxval=1.0) 
+    #b_m = tf.get_variable("b_m", [output_size], initializer=xavier_initializer([total_arg_size, output_size]))
+    #b_p = tf.get_variable("b_p", [output_size], initializer=xavier_initializer([total_arg_size, output_size]))
     # Element-wise multiplication
-    bias_term = tf.mul(b_m,(tf.nn.tanh(rand2 - b_p)))	
+    #bias_term = tf.mul(b_m,(tf.nn.tanh(rand2 - b_p)))	
 	
-  return res + bias_term
+  return res# + bias_term
