@@ -7,7 +7,7 @@ import numpy as np
 from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
-from optimizer import Optimizer
+from ac_network import A3CRNN
 from constants import summaries_dir, save_path, seq_length
 
 """

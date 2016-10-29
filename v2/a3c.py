@@ -74,6 +74,7 @@ def train_function(parallel_index):
 		
 		# Printing for each thread allows synchronization and divergence to be detected
 		if count % summary_freq == 0:
+			### Print out average signed change in loss 
 			print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
 			discounted_rewards = []
 			losses = []

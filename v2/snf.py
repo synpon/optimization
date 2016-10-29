@@ -27,6 +27,40 @@ class SNF(object):
 									state_ops.weights: self.weights})
 		return loss, grads
 		
+	def calc_loss(self, point, state_ops, sess):
+		loss = sess.run([state_ops.loss], 
+						feed_dict={	state_ops.point: point, 
+									state_ops.hyperplanes: self.hyperplanes, 
+									state_ops.variances: self.variances, 
+									state_ops.weights: self.weights})
+		return loss[0]
+		
+		
+	def calc_grads(self, point, state_ops, sess):
+		grads = sess.run([state_ops.grads], 
+						feed_dict={	state_ops.point: point, 
+									state_ops.hyperplanes: self.hyperplanes, 
+									state_ops.variances: self.variances, 
+									state_ops.weights: self.weights})
+		return np.reshape(grads[0],[1,m,1])
+		
+		
+	def choose_action(self,mean,variance):
+		for i,v in enumerate(variance):
+			mean[i] += np.random.normal(0,v)*mean[i]
+		action = np.reshape(mean,[1,m,1])
+		action = np_inv_scale_grads(action)
+		return action
+	
+	
+	def act(self, state, action, state_ops, sess):
+		action = np.reshape(action,[m,1])
+		state.point += action		
+		loss = self.calc_loss(state.point, state_ops, sess)
+		reward = -loss
+		state.set_loss_and_grads(self, state_ops, sess)
+		return loss, state
+		
 		
 def gen_points(num_points):
 	points = np.random.rand(m*num_points)
@@ -34,7 +68,7 @@ def gen_points(num_points):
 	return points
 	
 		
-def calc_snf_loss_tf(point,hyperplanes,variances,weights):
+def snf_loss_tf(point,hyperplanes,variances,weights):
 	#variances = tf.maximum(variances,1e-6) # Avoid NaN errors
 	# Calculate the distance of the point from each hyperplane
 	hyperplanes = tf.reshape(hyperplanes, [k,m,m])
@@ -59,7 +93,7 @@ def calc_snf_loss_tf(point,hyperplanes,variances,weights):
 	return loss
 	
 	
-def calc_grads_tf(loss,point):
+def snf_grads_tf(loss,point):
 	grads = tf.gradients(loss,point)[0]
 	grads = tf.reshape(grads,[1,m,1])
 	grads = scale_grads(grads)
@@ -80,8 +114,8 @@ class StateOps:
 		self.weights = tf.placeholder(tf.float32, [k,1])
 		self.hyperplanes = tf.placeholder(tf.float32, [m,m,k]) # Points which define the hyperplanes
 		
-		self.loss = calc_snf_loss_tf(self.point,self.hyperplanes,self.variances,self.weights)
-		self.grads = calc_grads_tf(self.loss,self.point)
+		self.loss = snf_loss_tf(self.point,self.hyperplanes,self.variances,self.weights)
+		self.grads = snf_grads_tf(self.loss,self.point)
 
 		
 class State(object):
@@ -90,7 +124,7 @@ class State(object):
 		self.snf = snf
 		self.point = gen_points(1)
 		self.counter = 1
-		self.loss_and_grads(snf, state_ops, sess) # calc and set
+		self.set_loss_and_grads(snf, state_ops, sess) # calc and set
 		
 		if rnn_type == 'lstm':
 			self.rnn_state = np.zeros([m,2*rnn_size*num_rnn_layers])
@@ -98,5 +132,5 @@ class State(object):
 			self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
 		
 		
-	def loss_and_grads(self, snf, state_ops, sess):
+	def set_loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)

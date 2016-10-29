@@ -42,7 +42,7 @@ class A3CRNN(object):
 			
 			grads = tf.transpose(grads, perm=[1,0,2])
 
-			# Unrolling LSTM up to LOCAL_T_MAX time steps.
+			# Unrolling the RNN up to local_t_max time steps.
 			# When episode terminates unrolling time steps becomes less than LOCAL_TIME_STEP.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, step_size is 1.
@@ -66,11 +66,9 @@ class A3CRNN(object):
 			# Average over the parameters ### correct?
 			mean_output = tf.reduce_mean(self.output, reduction_indices=[1]) # [self.step_size[0], self.cell.state_size]
 			
-			### Needs more layers?
+			#===# Value network #===#
 			snf_loss = tf.expand_dims(self.snf_loss, 1)
-			mean_output_and_snf_loss = mean_output#tf.concat(1, [mean_output, snf_loss])
-			#mean_output_and_snf_loss = snf_loss ### works better?
-			v_h = fc_layer(mean_output_and_snf_loss, num_in=rnn_size, num_out=10, activation_fn=tf.nn.relu) ###
+			v_h = fc_layer(snf_loss, num_in=1, num_out=10, activation_fn=tf.nn.relu) ###
 			v_h = fc_layer(v_h, num_in=10, num_out=10, activation_fn=tf.nn.relu)
 			v = fc_layer(v_h, num_in=10, num_out=1, activation_fn=None)
 			
@@ -82,6 +80,7 @@ class A3CRNN(object):
 		self.trainable_vars = tf.trainable_variables()[-num_trainable_vars[0]:]		
 		self.reset_rnn_state()
 
+		
 	# Create placeholder variables in order to calculate the loss
 	def prepare_loss(self, entropy_beta):
 	
@@ -107,6 +106,7 @@ class A3CRNN(object):
 
 		self.total_loss = policy_loss + value_loss
 
+		
 	def sync_from(self, src_network, name=None):
 		src_vars = src_network.trainable_vars
 		dst_vars = self.trainable_vars
@@ -140,7 +140,7 @@ class A3CRNN(object):
 		
 	# Updates the RNN state
 	def run_policy_and_value(self, sess, state, snf, state_ops):	
-		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if applicable
+		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if possible
 		
 		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m]), self.snf_loss:snf_loss}
 		[mean, variance, self.rnn_state_out, value] = sess.run([self.mean, self.variance, self.rnn_state, self.v], feed_dict=feed_dict)
@@ -160,7 +160,7 @@ class A3CRNN(object):
 	
 	# Does not update the RNN state
 	def run_value(self, sess, state, snf, state_ops):
-		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if applicable	
+		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if possible	
 		prev_rnn_state_out = self.rnn_state_out
 		
 		feed_dict = {self.grads:state.grads, self.initial_rnn_state:self.rnn_state_out, self.step_size:np.ones([m]), self.snf_loss:snf_loss}

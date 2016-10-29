@@ -6,7 +6,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN
-from snf import SNF, State, StateOps
+from snf import SNF, State, StateOps, snf_loss_tf, snf_grads_tf
 from constants import local_t_max, entropy_beta, m, discount_rate, \
 						termination_prob, max_time_steps, lr_high, lr_low
 
@@ -77,8 +77,7 @@ class A3CTrainingthread(object):
 		
 		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess))
 		
-		if use_rnn:
-			start_rnn_state = self.local_network.rnn_state_out
+		start_rnn_state = self.local_network.rnn_state_out
 
 		episode_losses = []
 		prev_snf_loss = None
@@ -121,8 +120,7 @@ class A3CTrainingthread(object):
 				#	print "Episode reward cannot be computed"
 					
 				self.episode_rewards = []
-				if use_rnn:
-					self.local_network.reset_rnn_state()
+				self.local_network.reset_rnn_state()
 				break
 
 		snf_losses = snf_losses[:-1] # Remove last entry
@@ -156,37 +154,26 @@ class A3CTrainingthread(object):
 			batch_td.append(td)
 			batch_R.append(R)
 			batch_snf_loss.append(snf_loss)
+
+		batch_a.reverse()
+		batch_grads.reverse()
+		batch_td.reverse()
+		batch_R.reverse()
+		batch_snf_loss.reverse()
+		
+		step_size = len(batch_a)
+		batch_grads = np.concatenate(batch_grads, axis=0)
+		batch_a = np.concatenate(batch_a, axis=0)
 			
-		if use_rnn:
-			batch_a.reverse()
-			batch_grads.reverse()
-			batch_td.reverse()
-			batch_R.reverse()
-			batch_snf_loss.reverse()
-			
-			step_size = len(batch_a)
-			batch_grads = np.concatenate(batch_grads, axis=0)
-			batch_a = np.concatenate(batch_a, axis=0)
-				
-			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
-								feed_dict = {
-									self.local_network.grads: batch_grads,
-									self.local_network.a: batch_a,
-									self.local_network.td: batch_td,
-									self.local_network.r: batch_R,
-									self.local_network.snf_loss: batch_snf_loss,
-									self.local_network.initial_rnn_state: start_rnn_state,
-									self.local_network.step_size: step_size*np.ones([m])})
-		else:
-			batch_grads = np.concatenate(batch_grads, axis=0)
-			batch_a = np.concatenate(batch_a, axis=0)
-			
-			_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
-								feed_dict = {
-									self.local_network.grads: batch_grads,
-									self.local_network.a: batch_a,
-									self.local_network.td: batch_td,
-									self.local_network.r: batch_R})
+		_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
+							feed_dict = {
+								self.local_network.grads: batch_grads,
+								self.local_network.a: batch_a,
+								self.local_network.td: batch_td,
+								self.local_network.r: batch_R,
+								self.local_network.snf_loss: batch_snf_loss,
+								self.local_network.initial_rnn_state: start_rnn_state,
+								self.local_network.step_size: step_size*np.ones([m])})
 
 		episode_losses.append(loss)
 			 
@@ -196,7 +183,7 @@ class A3CTrainingthread(object):
 
 		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
 		
-		if len(self.episode_rewards) >= 2:
+		if len(self.episode_rewards) >= 2: ### used for?
 			episode_reward = self.episode_rewards[-1] - self.episode_rewards[0] # Change in the SNF loss - should be negative
 		else:
 			episode_reward = 0
