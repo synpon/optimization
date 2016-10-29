@@ -65,14 +65,15 @@ def train_function(parallel_index):
 		
 		if global_t > max_time_steps:
 			print "thread %d reached max steps" % parallel_index
-			return #break
+			return
 		
 		diff_global_t, r, loss = train_thread_class.thread(sess, global_t)
 		discounted_rewards.append(r)
 		losses.append(loss)
 		global_t += diff_global_t
 		
-		# Printing for each thread allows synchronization and divergence to be detected
+		# Printing for each thread separately allows synchronization and 
+		# divergence between the threads to be detected
 		if count % summary_freq == 0:
 			### Print out average signed change in loss 
 			print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)

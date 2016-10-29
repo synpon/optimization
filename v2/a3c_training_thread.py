@@ -27,10 +27,8 @@ class A3CTrainingthread(object):
 		self.learning_rate_input = learning_rate_input
 		self.snf = snf
 		self.state_ops = StateOps()
-		self.episode_rewards = []
 		
-		#initializer = tf.random_uniform_initializer(-0.1, 0.1)		
-		with tf.variable_scope("model"+str(thread_index), reuse=None):#, initializer=initializer):
+		with tf.variable_scope("model"+str(thread_index), reuse=None):
 			self.local_network = A3CRNN(num_trainable_vars)
 			
 		self.local_network.prepare_loss(entropy_beta)
@@ -57,7 +55,7 @@ class A3CTrainingthread(object):
 		return lr
 
 
-	# Not one episode
+	# Not one episode - length is local_t_max
 	def thread(self, sess, global_t):
 		states = []
 		actions = []
@@ -77,10 +75,8 @@ class A3CTrainingthread(object):
 		
 		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess))
 		
-		start_rnn_state = self.local_network.rnn_state_out
-
-		episode_losses = []
-		prev_snf_loss = None
+		start_rnn_state = self.local_network.rnn_state_out ### rename?
+		start_val_rnn_state = self.local_network.val_rnn_state
 		
 		for i in range(local_t_max):
 			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state, self.snf, self.state_ops)
@@ -93,16 +89,9 @@ class A3CTrainingthread(object):
 
 			# State is the point, action is the update
 			snf_loss, next_state = self.snf.act(self.state, action, self.state_ops, sess)
-			if prev_snf_loss is None:
-				reward = 0
-			else:
-				reward = np.sign(prev_snf_loss - snf_loss)
-				
-			prev_snf_loss = snf_loss
-			
-			self.episode_rewards.append(reward)
-			rewards.append(reward)
-			snf_losses.append(-reward)
+
+			rewards.append(-snf_loss)
+			snf_losses.append(snf_loss)
 
 			self.local_t += 1
 			self.state = next_state
@@ -113,13 +102,7 @@ class A3CTrainingthread(object):
 				terminal_end = True
 				self.snf = SNF()
 				self.state = State(self.snf,self.state_ops,sess)
-				
-				#if len(self.episode_rewards) >= 2:
-				#	print "Episode reward: %4f\t%4f\t%d" % (self.episode_rewards[-1] - self.episode_rewards[0], np.mean(self.episode_rewards), global_t)
-				#else:
-				#	print "Episode reward cannot be computed"
 					
-				self.episode_rewards = []
 				self.local_network.reset_rnn_state()
 				break
 
@@ -161,32 +144,29 @@ class A3CTrainingthread(object):
 		batch_R.reverse()
 		batch_snf_loss.reverse()
 		
+		batch_snf_loss = np.reshape(batch_snf_loss,[-1,1,1])
+		
 		step_size = len(batch_a)
 		batch_grads = np.concatenate(batch_grads, axis=0)
 		batch_a = np.concatenate(batch_a, axis=0)
 			
+		# Applies the cell op for each set of grads and values in the batch separately
 		_, loss = sess.run([self.accum_gradients, self.local_network.total_loss], 
 							feed_dict = {
 								self.local_network.grads: batch_grads,
 								self.local_network.a: batch_a,
 								self.local_network.td: batch_td,
-								self.local_network.r: batch_R,
+								self.local_network.R: batch_R,
 								self.local_network.snf_loss: batch_snf_loss,
 								self.local_network.initial_rnn_state: start_rnn_state,
-								self.local_network.step_size: step_size*np.ones([m])})
-
-		episode_losses.append(loss)
+								self.local_network.step_size: step_size*np.ones([m]),
+								self.local_network.initial_val_rnn_state: start_val_rnn_state,
+								self.local_network.val_step_size: step_size*np.ones([1])})
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
+		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
-
-		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
-		
-		if len(self.episode_rewards) >= 2: ### used for?
-			episode_reward = self.episode_rewards[-1] - self.episode_rewards[0] # Change in the SNF loss - should be negative
-		else:
-			episode_reward = 0
 			
-		return diff_local_t, episode_reward, np.mean(episode_losses)
+		return diff_local_t, 0, 0 ###
 		

@@ -57,7 +57,6 @@ class SNF(object):
 		action = np.reshape(action,[m,1])
 		state.point += action		
 		loss = self.calc_loss(state.point, state_ops, sess)
-		reward = -loss
 		state.set_loss_and_grads(self, state_ops, sess)
 		return loss, state
 		
@@ -128,8 +127,10 @@ class State(object):
 		
 		if rnn_type == 'lstm':
 			self.rnn_state = np.zeros([m,2*rnn_size*num_rnn_layers])
+			self.val_rnn_state = np.zeros([m,2*4*num_rnn_layers]) ### use val_rnn_size
 		else:
 			self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
+			self.val_rnn_state = np.zeros([m,4*num_rnn_layers]) ### use val_rnn_size
 		
 		
 	def set_loss_and_grads(self, snf, state_ops, sess):

@@ -39,8 +39,8 @@ var_size = 0.2
 grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[0]
 
-### Decrease over time
-termination_prob = 0.001 ###0.0001 # Can be used to control the trade-off between speed and the final loss, as the learning rate does.
+### Decrease over time?
+termination_prob = 0.001 #0.0001 # Can be used to control the trade-off between speed and the final loss, as the learning rate does.
 
 # Random noise is computed each time the point is processed while training the opt net
 grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.
