@@ -32,7 +32,7 @@ class A3CRNN(object):
 				raise NotImplementedError
 			
 			# placeholder for RNN unrolling time step size.
-			self.step_size = tf.placeholder(tf.int32, [m], 'step_size')
+			self.step_size = tf.placeholder(tf.int32, [None], 'step_size')
 			#self.step_size = tf.tile(self.step_size, tf.pack([n_dims])) # m acts as the batch size
 			
 			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size], 'grad_rnn_state')

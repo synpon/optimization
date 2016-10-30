@@ -7,7 +7,7 @@ summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
 
 log_file = 'tmp/a3c_log'
-summary_freq = 1000
+summary_freq = 100
 
 #===# A3C constants #===#
 num_threads = 8

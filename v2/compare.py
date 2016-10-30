@@ -8,7 +8,7 @@ from mlp import MLP
 from mlp_relu import MLP_RELU
 from cnn import CNN
 from ac_network import A3CRNN
-from constants import summaries_dir, save_path, seq_length
+from constants import summaries_dir, save_path
 
 """
 tensorboard --logdir=/tmp/logs ./ --host 0.0.0.0
@@ -17,13 +17,13 @@ http://ec2-52-48-79-131.eu-west-1.compute.amazonaws.com:6006/
 
 sess = tf.Session()
 	
-opt_net = Optimizer()
+opt_net = A3CRNN([None])
 	
 # Load model
 saver = tf.train.Saver(tf.trainable_variables())
 saver.restore(sess, save_path)
 
-net = MLP_RELU(opt_net)
+net = MLP(opt_net)
 
 print "\nRunning optimizer comparison..."
 
@@ -71,9 +71,11 @@ for i in range(net.batches):
 	summary, grads = sess.run([merged, net.grads], feed_dict={net.x:batch_x, net.y_:batch_y})
 	
 	# Compute update
-	feed_dict = {net.opt_net.input_grads: np.reshape(grads,[1,-1,1]), 
-				net.opt_net.initial_rnn_state: rnn_state}
-	[update, rnn_state] = sess.run([net.opt_net.update, net.opt_net.rnn_state_out_compare], feed_dict=feed_dict)
+	feed_dict = {net.opt_net.grads: np.reshape(grads,[1,-1,1]), 
+				net.opt_net.initial_rnn_state: rnn_state,
+				net.opt_net.step_size: np.ones([net.num_params])}
+	[update, rnn_state] = sess.run([net.opt_net.mean, net.opt_net.rnn_state], feed_dict=feed_dict) ### rnn_state_out_compare?
+	update = np.squeeze(update,2)
 	
 	# Update MLP parameters
 	_ = sess.run([net.opt_net_train_step], feed_dict={net.update:update})	
