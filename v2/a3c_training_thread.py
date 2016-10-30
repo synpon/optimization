@@ -164,9 +164,10 @@ class A3CTrainingthread(object):
 								self.local_network.val_step_size: step_size*np.ones([1])})
 			 
 		cur_learning_rate = self._anneal_learning_rate(global_t)
-		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 			
-		return diff_local_t, 0, 0 ###
+		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
+		loss_change = snf_losses[0] - snf_losses[-1]
+		return diff_local_t, loss_change, 0 ###
 		

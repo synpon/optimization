@@ -155,7 +155,7 @@ class A3CRNN(object):
 		
 		feed_dict = {self.grads:state.grads, 
 						self.initial_rnn_state: self.rnn_state_out, 
-						self.step_size: np.ones([m]),  ### why m?
+						self.step_size: np.ones([m]),
 						self.val_step_size: np.ones([1]),
 						self.snf_loss: snf_loss,
 						self.initial_val_rnn_state: self.val_rnn_state}

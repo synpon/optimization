@@ -33,7 +33,7 @@ if args.save_model:
 else:
 	print "Model will not be saved"
 	
-print "Reward\t\t Loss\t\t Global time step" ###
+print "Change\t\t Signed change\t\t Global time step"
 	
 # Globals
 stop_requested = False	
@@ -54,8 +54,8 @@ def train_function(parallel_index):
 	global global_t
 	global graph
 	train_thread_class = train_thread_classes[parallel_index]
-	discounted_rewards = []
-	losses = []
+	snf_loss_changes = []
+	signed_snf_loss_changes = []
 	count = 0 # Unlike global_t, count is thread-specific
 
 	while True:
@@ -67,18 +67,18 @@ def train_function(parallel_index):
 			print "thread %d reached max steps" % parallel_index
 			return
 		
-		diff_global_t, r, loss = train_thread_class.thread(sess, global_t)
-		discounted_rewards.append(r)
-		losses.append(loss)
+		diff_global_t, loss_change, _ = train_thread_class.thread(sess, global_t)
+		snf_loss_changes.append(loss_change) # Average over local_t_max steps
+		signed_snf_loss_changes.append(np.sign(loss_change))
 		global_t += diff_global_t
 		
 		# Printing for each thread separately allows synchronization and 
 		# divergence between the threads to be detected
 		if count % summary_freq == 0:
 			### Print out average signed change in loss 
-			print "%.4f\t\t %.4f\t\t %d" % (np.mean(discounted_rewards), np.mean(losses), global_t)
-			discounted_rewards = []
-			losses = []
+			print "%.4f\t\t %.4f\t\t %d" % (np.mean(snf_loss_changes), np.mean(signed_snf_loss_changes), global_t)
+			snf_loss_changes = []
+			signed_snf_loss_changes = []
 			
 			
 with graph.as_default(), tf.Session() as sess:

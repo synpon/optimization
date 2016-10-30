@@ -7,7 +7,7 @@ summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
 
 log_file = 'tmp/a3c_log'
-summary_freq = 100
+summary_freq = 1000
 
 #===# A3C constants #===#
 num_threads = 8
@@ -29,6 +29,7 @@ rmsp_momentum = 0.0#0.9
 rnn_types = ['rnn','gru']
 rnn_type = rnn_types[1]
 rnn_size = 8
+val_rnn_size = 4 ### use
 num_rnn_layers = 1
 
 #===# SNF constants #===#

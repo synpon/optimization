@@ -107,7 +107,7 @@ class StateOps:
 	"""
 
 	def __init__(self): 
-		#===# Graph to compute the loss and gradients for a single point #===#
+		# Graph to compute the loss and gradients for a single point
 		self.point = tf.placeholder(tf.float32, [m,1])
 		self.variances = tf.placeholder(tf.float32, [k,1])
 		self.weights = tf.placeholder(tf.float32, [k,1])
@@ -127,10 +127,10 @@ class State(object):
 		
 		if rnn_type == 'lstm':
 			self.rnn_state = np.zeros([m,2*rnn_size*num_rnn_layers])
-			self.val_rnn_state = np.zeros([m,2*4*num_rnn_layers]) ### use val_rnn_size
+			self.val_rnn_state = np.zeros([m,2*4*num_rnn_layers])
 		else:
 			self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
-			self.val_rnn_state = np.zeros([m,4*num_rnn_layers]) ### use val_rnn_size
+			self.val_rnn_state = np.zeros([m,4*num_rnn_layers])
 		
 		
 	def set_loss_and_grads(self, snf, state_ops, sess):
