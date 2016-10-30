@@ -6,7 +6,7 @@ import numpy as np
 import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
-from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method
+from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, val_rnn_size
 
 
 # Actor-Critic Network (policy and value network)
@@ -15,7 +15,7 @@ class A3CRNN(object):
 	def __init__(self, num_trainable_vars):
 		# Input
 		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
-		n_dims = tf.shape(self.grads)[1] # Dimensionality of the optimizee
+		#n_dims = tf.shape(self.grads)[1] # Dimensionality of the optimizee
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
@@ -37,49 +37,48 @@ class A3CRNN(object):
 			
 			self.initial_rnn_state = tf.placeholder(tf.float32, [None,self.cell.state_size], 'grad_rnn_state')
 			
-			grads = tf.transpose(self.grads, perm=[1,0,2]) ### correct?
+			grads = tf.transpose(self.grads, perm=[1,0,2])
 
 			# Unrolling the RNN up to local_t_max time steps.
 			# When episode terminates unrolling time steps becomes less than local_time_step.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, the step_size is 1.
-			output, rnn_state = rnn.dynamic_rnn(self.cell, ### change to using the default rnn code
+			output, rnn_state = rnn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
-									sequence_length = self.step_size, ### necessary?
+									#sequence_length = self.step_size,
 									time_major = False)
 			
 			self.rnn_state = rnn_state # [m, cell.state_size]
 		
 			# policy - linear activation
 			# fc_layer3 is needed for batch processing
-			self.mean = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None)
+			# output has shape [m, step_size, rnn_size]
+			self.mean = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None) # [m, step_size, 1]
 
 			# The activation function ensures the variance is not negative
-			self.variance = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=tf.nn.relu) # softplus not used due to NaNs
-			#tf.maximum(0.01,h) # protection against NaNs
+			self.variance = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None) # [m, step_size, 1]
+			self.variance = tf.maximum(0.0001,self.variance) # ReLU and protection against NaNs
 			
 			#===# Value network #===#		
-			val_rnn_size = 4
-			value_cell = rnn_cell.GRUCell(val_rnn_size) ### Use an LSTM?
+			value_cell = tf.nn.rnn_cell.GRUCell(val_rnn_size) ### Use an LSTM?
 			
-			self.snf_loss = tf.placeholder(tf.float32, [None,1,1] , 'snf_loss') ### check dimensions
+			self.snf_loss = tf.placeholder(tf.float32, [None,1,1] , 'snf_loss')
 			self.initial_val_rnn_state = tf.placeholder(tf.float32, [None,value_cell.state_size], 'val_rnn_state')
 			self.val_step_size = tf.placeholder(tf.int32, [None], 'step_size')
 			
 			snf_loss = tf.transpose(self.snf_loss, perm=[1,0,2])
 
-			val_output, val_rnn_state = rnn.dynamic_rnn(value_cell,
+			val_output, val_rnn_state = tf.nn.dynamic_rnn(value_cell,
 												snf_loss,
 												initial_state = self.initial_val_rnn_state,
-												sequence_length = self.val_step_size, ### necessary?
+												#sequence_length = self.val_step_size,
 												time_major = False)
-											
-			val_output = tf.reshape(val_output,[-1,val_rnn_size])
+										
 			self.val_rnn_state = val_rnn_state # [1, cell.state_size]
 
-			v = fc_layer(val_output, num_in=val_rnn_size, num_out=1, activation_fn=None) ### Must be a scalar
-			v = tf.squeeze(v)
+			v = fc_layer3(val_output, num_in=val_rnn_size, num_out=1, activation_fn=None) # [1, step_size, 1]
+			v = tf.squeeze(v) # [step_size]
 			
 		self.v = v
 		
@@ -106,7 +105,7 @@ class A3CRNN(object):
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Policy loss (output)
-		policy_loss = tf.nn.l2_loss(self.mean - a)*self.td - entropy*entropy_beta
+		policy_loss = tf.nn.l2_loss(self.mean - a)*self.td - entropy*entropy_beta ### first term should use the variance?
 
 		# R (input for value)
 		self.R = tf.placeholder(tf.float32, [None], 'R')
@@ -194,5 +193,5 @@ class A3CRNN(object):
 		
 	def reset_rnn_state(self): ### confusion with similar state ops in snf - put in separate classes?
 		self.rnn_state_out = np.zeros([m,self.cell.state_size])
-		self.val_rnn_state = np.zeros([1,4*num_rnn_layers])
+		self.val_rnn_state = np.zeros([1,val_rnn_size*num_rnn_layers])
 		

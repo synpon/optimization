@@ -6,15 +6,16 @@ import numpy as np
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
 
-log_file = 'tmp/a3c_log'
-summary_freq = 100
+summary_freq = 1000
+test_freq = 50000 ### Add periodic testing with MLP
 
 #===# A3C constants #===#
 num_threads = 8
 local_t_max = 5 # repeat step size
-entropy_beta = 0.0#001 # entropy regularization constant 0.0001
-max_time_steps = 1e7
-discount_rate = 1.0#0.99
+entropy_beta = 0.0001 # entropy regularization constant 0.0001
+max_time_steps = 1e9
+discount_rate = 0.99
+### Add discounting based on the local time step?
 
 #===# RMSProp constants #===#
 rmsp_alpha = 0.99 #0.99# decay parameter for the historical gradient
@@ -29,8 +30,8 @@ rmsp_momentum = 0.0#0.9
 rnn_types = ['rnn','gru']
 rnn_type = rnn_types[1]
 rnn_size = 8
-val_rnn_size = 4 ### use
 num_rnn_layers = 1
+val_rnn_size = 4
 
 #===# SNF constants #===#
 k = 10 # Number of hyperplanes
@@ -41,9 +42,7 @@ grad_scaling_methods = ['none','full']
 grad_scaling_method = grad_scaling_methods[0]
 
 ### Decrease over time?
-termination_prob = 0.001 #0.0001 # Can be used to control the trade-off between speed and the final loss, as the learning rate does.
+termination_prob = 0.01 #0.0001 # Can be used to control the trade-off between speed and the final loss, as the learning rate does.
 
 # Random noise is computed each time the point is processed while training the opt net
-grad_noise = 0.5 # Determines the size of the standard deviation. The mean is zero.
-
-#batch size?
+grad_noise = 0.0#0.5 # Determines the size of the standard deviation. The mean is zero.

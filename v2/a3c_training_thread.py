@@ -126,7 +126,7 @@ class A3CTrainingthread(object):
 		batch_snf_loss = []
 		
 		assert len(actions) == len(rewards) == len(states) == len(values) == len(snf_losses)
-		
+		### check these lists are synced correctly
 		# compute and accumulate gradients
 		for (a, r, s, V, snf_loss) in zip(actions, rewards, states, values, snf_losses):
 			R = r + discount_rate * R
@@ -168,6 +168,6 @@ class A3CTrainingthread(object):
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 			
 		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
-		loss_change = snf_losses[0] - snf_losses[-1]
-		return diff_local_t, loss_change, 0 ###
+		loss_change = snf_losses[0] - snf_losses[-1] # This way round because snf_losses was reversed
+		return diff_local_t, loss_change, 0
 		

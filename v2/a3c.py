@@ -15,7 +15,7 @@ from snf import SNF
 from diagnostics import proportion_zeros
 
 from constants import num_threads, max_time_steps, \
-	log_file, rmsp_epsilon, rmsp_momentum, rmsp_alpha, grad_norm_clip, \
+	rmsp_epsilon, rmsp_momentum, rmsp_alpha, grad_norm_clip, \
 	summary_freq, save_path
 
 """
