@@ -43,23 +43,23 @@ class SNF(object):
 									state_ops.variances: self.variances, 
 									state_ops.weights: self.weights})
 		return np.reshape(grads[0],[1,m,1])
-		
-		
-	def choose_action(self,mean,variance):
-		for i,v in enumerate(variance):
-			mean[i] += np.random.normal(0,v)*mean[i]
-		action = np.reshape(mean,[1,m,1])
-		action = np_inv_scale_grads(action)
-		return action
 	
 	
 	def act(self, state, action, state_ops, sess):
 		action = np.reshape(action,[m,1])
-		state.point += action		
-		loss = self.calc_loss(state.point, state_ops, sess)
+		state.point += action
 		state.set_loss_and_grads(self, state_ops, sess)
-		return loss, state
+		return state
 		
+
+def choose_action(mean,variance):
+	# Iterate over the dimensions
+	for i,v in enumerate(variance):
+		mean[i] += np.random.normal(0,v)*mean[i] ### wrong?
+	action = np.reshape(mean,[1,m,1])
+	action = np_inv_scale_grads(action)
+	return action		
+
 		
 def gen_points(num_points):
 	points = np.random.rand(m*num_points)
@@ -99,7 +99,7 @@ def snf_grads_tf(loss,point):
 	return grads
 		
 		
-class StateOps:
+class StateOps(object):
 	"""
 	The definition of this graph could be included within State but making it separate means 
 	the graph only has to be created once, as opposed to once every time an instance of State 
@@ -122,16 +122,9 @@ class State(object):
 	def __init__(self, snf, state_ops, sess):
 		self.snf = snf
 		self.point = gen_points(1)
-		self.counter = 1
 		self.set_loss_and_grads(snf, state_ops, sess) # calc and set
-		
-		if rnn_type == 'lstm':
-			self.rnn_state = np.zeros([m,2*rnn_size*num_rnn_layers])
-			self.val_rnn_state = np.zeros([m,2*4*num_rnn_layers])
-		else:
-			self.rnn_state = np.zeros([m,rnn_size*num_rnn_layers])
-			self.val_rnn_state = np.zeros([m,4*num_rnn_layers])
 		
 		
 	def set_loss_and_grads(self, snf, state_ops, sess):
 		[self.loss,self.grads] = snf.calc_loss_and_grads(self.point, state_ops, sess)
+		

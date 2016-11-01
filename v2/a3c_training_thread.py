@@ -6,7 +6,7 @@ import random
 
 from accum_trainer import AccumTrainer
 from ac_network import A3CRNN
-from snf import SNF, State, StateOps, snf_loss_tf, snf_grads_tf
+from snf import SNF, State, StateOps, snf_loss_tf, snf_grads_tf, choose_action
 from constants import local_t_max, entropy_beta, m, discount_rate, \
 						termination_prob, max_time_steps, lr_high, lr_low
 
@@ -49,12 +49,6 @@ class A3CTrainingthread(object):
 		self.state = State(self.snf, self.state_ops, sess) # Generate a new starting point on the landscape
 
 
-	def _anneal_learning_rate(self, global_time_step):
-		t = global_time_step / max_time_steps # Proportion of total time elapsed
-		lr = lr_high*t + (1-t)*lr_low
-		return lr
-
-
 	# Not one episode - length is local_t_max
 	def thread(self, sess, global_t):
 		states = []
@@ -73,25 +67,26 @@ class A3CTrainingthread(object):
 		
 		start_local_t = self.local_t
 		
-		snf_losses.append(self.snf.calc_loss(self.state.point, self.state_ops, sess))
+		snf_losses.append(self.state.loss)
 		
 		start_rnn_state = self.local_network.rnn_state_out ### rename?
-		start_val_rnn_state = self.local_network.val_rnn_state
+		start_val_rnn_state = self.local_network.val_rnn_state_out
 		
 		for i in range(local_t_max):
 			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state, self.snf, self.state_ops)
 			
-			action = self.snf.choose_action(mean,variance) # Calculate update
+			action = choose_action(mean,variance) # Calculate update
 			
 			states.append(self.state)
 			actions.append(action)
 			values.append(value)
 
 			# State is the point, action is the update
-			snf_loss, next_state = self.snf.act(self.state, action, self.state_ops, sess)
+			next_state = self.snf.act(self.state, action, self.state_ops, sess)
+			snf_loss = next_state.loss
 
 			rewards.append(-snf_loss)
-			snf_losses.append(snf_loss)
+			snf_losses.append(snf_loss) # Used for computing the value function
 
 			self.local_t += 1
 			self.state = next_state
@@ -101,12 +96,11 @@ class A3CTrainingthread(object):
 			if terminal:
 				terminal_end = True
 				self.snf = SNF()
-				self.state = State(self.snf,self.state_ops,sess)
-					
+				self.state = State(self.snf,self.state_ops,sess)					
 				self.local_network.reset_rnn_state()
 				break
-
-		snf_losses = snf_losses[:-1] # Remove last entry
+				
+		snf_losses = snf_losses[:-1] # Remove last entry	
 				
 		R = 0.0
 		if not terminal_end:
@@ -126,7 +120,7 @@ class A3CTrainingthread(object):
 		batch_snf_loss = []
 		
 		assert len(actions) == len(rewards) == len(states) == len(values) == len(snf_losses)
-		### check these lists are synced correctly
+
 		# compute and accumulate gradients
 		for (a, r, s, V, snf_loss) in zip(actions, rewards, states, values, snf_losses):
 			R = r + discount_rate * R
@@ -138,6 +132,7 @@ class A3CTrainingthread(object):
 			batch_R.append(R)
 			batch_snf_loss.append(snf_loss)
 
+		# Put back in the original order
 		batch_a.reverse()
 		batch_grads.reverse()
 		batch_td.reverse()
@@ -163,11 +158,17 @@ class A3CTrainingthread(object):
 								self.local_network.initial_val_rnn_state: start_val_rnn_state,
 								self.local_network.val_step_size: step_size*np.ones([1])})
 			 
-		cur_learning_rate = self._anneal_learning_rate(global_t)
+		cur_learning_rate = anneal_learning_rate(global_t)
 
 		sess.run(self.apply_gradients, feed_dict = {self.learning_rate_input: cur_learning_rate})
 			
 		diff_local_t = self.local_t - start_local_t # Amount to increment global_t by
 		loss_change = snf_losses[0] - snf_losses[-1] # This way round because snf_losses was reversed
 		return diff_local_t, loss_change, 0
+		
+		
+def anneal_learning_rate(global_time_step):
+	t = global_time_step / max_time_steps # Proportion of total time elapsed
+	lr = lr_high*t + (1-t)*lr_low
+	return lr
 		

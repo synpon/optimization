@@ -43,6 +43,7 @@ class A3CRNN(object):
 			# When episode terminates unrolling time steps becomes less than local_time_step.
 			# Unrolling step size is applied via self.step_size placeholder.
 			# When forward propagating, the step_size is 1.
+			# Sequence_length is useful when sequences are padded with zeros which should not be processed
 			output, rnn_state = rnn.dynamic_rnn(self.cell,
 									grads,
 									initial_state = self.initial_rnn_state,
@@ -105,8 +106,9 @@ class A3CRNN(object):
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Policy loss (output)
-		policy_loss = tf.nn.l2_loss(self.mean - a)*self.td - entropy*entropy_beta ### first term should use the variance?
-
+		### ensure mean and a are synced if doing it this way
+		policy_loss = tf.nn.l2_loss(self.mean - a)*self.td - entropy*entropy_beta ### first term should use the variance instead of tf.nn.l2_loss(self.mean - a)?
+		
 		# R (input for value)
 		self.R = tf.placeholder(tf.float32, [None], 'R')
 
@@ -148,41 +150,30 @@ class A3CRNN(object):
 		return tf.group(*ret)		
 		
 	# Updates the RNN state
-	def run_policy_and_value(self, sess, state, snf, state_ops):	
-		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if possible
-		snf_loss = np.reshape(snf_loss, [1,1,1])
+	def run_policy_and_value(self, sess, state, snf, state_ops):
+		snf_loss = np.reshape(state.loss, [1,1,1])
 		
-		feed_dict = {self.grads:state.grads, 
+		# state.grads is set by snf.act()
+		feed_dict = {self.grads:state.grads,
 						self.initial_rnn_state: self.rnn_state_out, 
 						self.step_size: np.ones([m]),
 						self.val_step_size: np.ones([1]),
 						self.snf_loss: snf_loss,
-						self.initial_val_rnn_state: self.val_rnn_state}
-		[mean, variance, self.rnn_state_out, value] = sess.run([self.mean, self.variance, self.rnn_state, self.v], feed_dict=feed_dict)
-		variance = np.maximum(variance,0.01)
-		
+						self.initial_val_rnn_state: self.val_rnn_state_out}
+						
+		[mean, variance, self.rnn_state_out, value, self.val_rnn_state_out] = sess.run([self.mean, self.variance, self.rnn_state, self.v, self.val_rnn_state], feed_dict=feed_dict)
+		variance = np.maximum(variance,0.01)	
 		value = np.squeeze(value)
 		return mean, variance, value
-
-		
-	# Updates the RNN state
-	def run_policy(self, sess, state):
-		feed_dict = {self.grads:state.grads, 
-						self.initial_rnn_state:self.rnn_state_out, 
-						self.step_size:np.ones([m])}
-		[mean, variance, self.rnn_state_out] = sess.run([self.mean, self.variance, self.rnn_state], feed_dict=feed_dict)
-		variance = np.maximum(variance,0.01)
-		return mean, variance
 	
 	
 	# Does not update the RNN state
 	def run_value(self, sess, state, snf, state_ops):
-		snf_loss = [snf.calc_loss(state.point, state_ops, sess)] ### reuse from the previous reward if possible	
-		snf_loss = np.reshape(snf_loss, [1,1,1])
-		
+		snf_loss = np.reshape(state.loss, [1,1,1])
+
 		feed_dict = {self.grads: state.grads, 
 						self.initial_rnn_state: self.rnn_state_out,
-						self.initial_val_rnn_state: self.val_rnn_state,
+						self.initial_val_rnn_state: self.val_rnn_state_out,
 						self.step_size: np.ones([m]), 
 						self.val_step_size: np.ones([1]),
 						self.snf_loss: snf_loss}
@@ -191,7 +182,7 @@ class A3CRNN(object):
 		return value 
 		
 		
-	def reset_rnn_state(self): ### confusion with similar state ops in snf - put in separate classes?
+	def reset_rnn_state(self):
 		self.rnn_state_out = np.zeros([m,self.cell.state_size])
-		self.val_rnn_state = np.zeros([1,val_rnn_size*num_rnn_layers])
+		self.val_rnn_state_out = np.zeros([1,val_rnn_size])
 		

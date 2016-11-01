@@ -3,7 +3,6 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
-import math
 import threading
 import signal
 import argparse
@@ -12,7 +11,6 @@ from ac_network import A3CRNN
 from a3c_training_thread import A3CTrainingthread
 from rmsprop_applier import RMSPropApplier
 from snf import SNF
-from diagnostics import proportion_zeros
 
 from constants import num_threads, max_time_steps, \
 	rmsp_epsilon, rmsp_momentum, rmsp_alpha, grad_norm_clip, \
@@ -46,7 +44,7 @@ graph = tf.Graph()
 # along with signal.pause() and signal.signal(...)
 def signal_handler(signal, frame): ### signal and frame seem to be unused
 	global stop_requested
-	print('Requesting stop')
+	print 'Requesting stop'
 	stop_requested = True
 	
 	
@@ -82,8 +80,7 @@ def train_function(parallel_index):
 			
 with graph.as_default(), tf.Session() as sess:
 	
-	global_network = A3CRNN(num_trainable_vars)
-		
+	global_network = A3CRNN(num_trainable_vars)		
 	learning_rate_input = tf.placeholder("float")
 
 	grad_applier = RMSPropApplier(learning_rate = learning_rate_input,
@@ -93,8 +90,7 @@ with graph.as_default(), tf.Session() as sess:
 									clip_norm = grad_norm_clip)
 				
 	train_threads = []
-	train_thread_classes = []
-	
+	train_thread_classes = []	
 	snf = SNF()
 
 	for i in range(num_threads):
