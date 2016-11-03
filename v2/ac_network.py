@@ -6,7 +6,7 @@ import numpy as np
 import rnn
 import rnn_cell
 from nn_utils import weight_matrix, bias_vector, fc_layer, fc_layer3, scale_grads, np_inv_scale_grads
-from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, val_rnn_size
+from constants import rnn_size, num_rnn_layers, m, rnn_type, grad_scaling_method, val_rnn_size, val_rnn_type
 
 
 # Actor-Critic Network (policy and value network)
@@ -20,7 +20,7 @@ class A3CRNN(object):
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
 		with tf.variable_scope("a3c"):
 			if rnn_type == 'rnn':
-				cell = rnn_cell.BasicRNNCell(rnn_size,activation=tf.identity)
+				cell = rnn_cell.BasicRNNCell(rnn_size)
 			elif rnn_type == 'gru':
 				cell = rnn_cell.GRUCell(rnn_size)
 			elif rnn_type == 'lstm':
@@ -59,18 +59,23 @@ class A3CRNN(object):
 
 			# The activation function ensures the variance is not negative
 			self.variance = fc_layer3(output, num_in=rnn_size, num_out=1, activation_fn=None) # [m, step_size, 1]
-			self.variance = tf.maximum(0.0001,self.variance) # ReLU and protection against NaNs
+			self.variance = tf.maximum(0.00001,self.variance) # ReLU and protection against NaNs
 			
 			#===# Value network #===#		
-			value_cell = tf.nn.rnn_cell.GRUCell(val_rnn_size) ### Use an LSTM?
+			if val_rnn_type == 'rnn':
+				self.value_cell = tf.nn.rnn_cell.BasicRNNCell(val_rnn_size)
+			elif val_rnn_type == 'gru':
+				self.value_cell = tf.nn.rnn_cell.GRUCell(val_rnn_size)
+			elif val_rnn_type == 'lstm':
+				self.value_cell = tf.nn.rnn_cell.BasicLSTMCell(val_rnn_size,state_is_tuple=False)
 			
 			self.snf_loss = tf.placeholder(tf.float32, [None,1,1] , 'snf_loss')
-			self.initial_val_rnn_state = tf.placeholder(tf.float32, [None,value_cell.state_size], 'val_rnn_state')
+			self.initial_val_rnn_state = tf.placeholder(tf.float32, [None,self.value_cell.state_size], 'val_rnn_state')
 			self.val_step_size = tf.placeholder(tf.int32, [None], 'step_size')
 			
 			snf_loss = tf.transpose(self.snf_loss, perm=[1,0,2])
 
-			val_output, val_rnn_state = tf.nn.dynamic_rnn(value_cell,
+			val_output, val_rnn_state = tf.nn.dynamic_rnn(self.value_cell,
 												snf_loss,
 												initial_state = self.initial_val_rnn_state,
 												#sequence_length = self.val_step_size,
@@ -105,9 +110,12 @@ class A3CRNN(object):
 		# Therefore, higher entropy makes the loss function lower.
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
-		# Policy loss (output)
-		### ensure mean and a are synced if doing it this way
-		policy_loss = tf.nn.l2_loss(self.mean - a)*self.td - entropy*entropy_beta ### first term should use the variance instead of tf.nn.l2_loss(self.mean - a)?
+		# Calculate the log probability density for the normal distribution
+		log_pd = -tf.sqrt(2*3.14*self.variance) - (tf.square(a-self.mean)/(2*self.variance))
+		
+		# Negative so that a positive td and a high probability density for that action result in a low loss
+		policy_loss = -tf.reduce_mean(log_pd)*self.td
+		policy_loss -= entropy*entropy_beta
 		
 		# R (input for value)
 		self.R = tf.placeholder(tf.float32, [None], 'R')
@@ -115,7 +123,7 @@ class A3CRNN(object):
 		# Learning rate for critic is half of actor's, so multiply by 0.5
 		value_loss = 0.5 * tf.nn.l2_loss(self.R - self.v)
 
-		self.total_loss = policy_loss + value_loss
+		self.total_loss = policy_loss + value_loss ### compute separately for policy and value losses?
 
 		
 	def sync_from(self, src_network, name=None):
@@ -179,10 +187,10 @@ class A3CRNN(object):
 						self.snf_loss: snf_loss}
 						
 		value = sess.run(self.v, feed_dict=feed_dict) # scalar
-		return value 
+		return value
 		
 		
 	def reset_rnn_state(self):
 		self.rnn_state_out = np.zeros([m,self.cell.state_size])
-		self.val_rnn_state_out = np.zeros([1,val_rnn_size])
+		self.val_rnn_state_out = np.zeros([1,self.value_cell.state_size])
 		

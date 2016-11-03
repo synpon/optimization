@@ -7,7 +7,7 @@ from constants import grad_scaling_method
 
 
 def xavier_initializer(dims): ### rename?
-	d = np.sqrt(1.0)/np.sqrt(sum(dims))
+	d = np.sqrt(6.0)/np.sqrt(sum(dims))
 	return tf.random_uniform_initializer(minval=-d, maxval=d)
 
 
@@ -95,3 +95,5 @@ def np_inv_scale_grads(x):
 def tf_print(x):
 	x = tf.Print(x,[x])
 	return
+	
+	

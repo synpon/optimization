@@ -55,7 +55,7 @@ class SNF(object):
 def choose_action(mean,variance):
 	# Iterate over the dimensions
 	for i,v in enumerate(variance):
-		mean[i] += np.random.normal(0,v)*mean[i] ### wrong?
+		mean[i] += np.random.normal(0,v)
 	action = np.reshape(mean,[1,m,1])
 	action = np_inv_scale_grads(action)
 	return action		

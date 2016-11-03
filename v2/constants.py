@@ -6,7 +6,7 @@ import numpy as np
 summaries_dir = '/tmp/logs'
 save_path = 'models/model.ckpt'
 
-summary_freq = 100
+summary_freq = 1000
 test_freq = 50000 ### Add periodic testing with MLP
 
 #===# A3C constants #===#
@@ -29,6 +29,7 @@ rmsp_momentum = 0.9
 #===# Opt net constants #===#
 rnn_types = ['rnn','gru']
 rnn_type = rnn_types[1]
+val_rnn_type = rnn_types[1]
 rnn_size = 8
 num_rnn_layers = 1
 val_rnn_size = 4
