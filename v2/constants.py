@@ -12,9 +12,9 @@ test_freq = 50000 ### Add periodic testing with MLP
 #===# A3C constants #===#
 num_threads = 8
 local_t_max = 5 # repeat step size
-entropy_beta = 0.001 # entropy regularization 0.0001
+entropy_beta = 0.1 # entropy regularization 0.0001
 max_time_steps = 1e9
-discount_rate = 0.99
+discount_rate = 0.5
 ### Add discounting based on the local time step?
 
 #===# RMSProp constants #===#

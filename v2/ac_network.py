@@ -107,15 +107,18 @@ class A3CRNN(object):
 		
 		# Entropy of the policy
 		# Entropy encourages exploration, which it is positively correlated with. 
-		# Therefore, higher entropy makes the loss function lower.
-		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
+		entropy = 0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Calculate the log probability density for the normal distribution
 		# http://www.cs.princeton.edu/courses/archive/spr08/cos424/scribe_notes/0214.pdf
+		# Will always be negative - both terms are always positive before the signs are applied
+		# log_pd becomes more negative as a deviates further from self.mean
 		log_pd = -0.5*tf.log(2*3.14*self.variance) - (tf.square(a-self.mean)/(2*self.variance))
 		
-		# Negative so that a positive td and a high probability density for that action result in a low loss
-		policy_loss = -tf.reduce_mean(log_pd)*self.td
+		# A positive td (R > V so go towards a) results in a low loss since the log_pd is always negative
+		policy_loss = tf.reduce_mean(log_pd)*self.td
+		
+		# In order to encourage exploration, a higher entropy makes the loss function lower.
 		policy_loss -= entropy*entropy_beta
 		
 		# R (input for value)
