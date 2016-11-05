@@ -159,7 +159,7 @@ class A3CRNN(object):
 		return tf.group(*ret)		
 		
 	# Updates the RNN state
-	def run_policy_and_value(self, sess, state, snf, state_ops):
+	def run_policy_and_value(self, sess, state):
 		snf_loss = np.reshape(state.loss, [1,1,1])
 		
 		# state.grads is set by snf.act()
@@ -177,12 +177,10 @@ class A3CRNN(object):
 	
 	
 	# Does not update the RNN state
-	def run_value(self, sess, state, snf, state_ops):
+	def run_value(self, sess, state):
 		snf_loss = np.reshape(state.loss, [1,1,1])
 
-		feed_dict = {self.grads: state.grads, 
-						self.initial_rnn_state: self.rnn_state_out,
-						self.initial_val_rnn_state: self.val_rnn_state_out,
+		feed_dict = {self.initial_val_rnn_state: self.val_rnn_state_out,
 						self.step_size: np.ones([m]), 
 						self.val_step_size: np.ones([1]),
 						self.snf_loss: snf_loss}

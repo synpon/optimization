@@ -73,7 +73,7 @@ class A3CTrainingthread(object):
 		start_val_rnn_state = self.local_network.val_rnn_state_out
 		
 		for i in range(local_t_max):
-			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state, self.snf, self.state_ops)
+			mean,variance,value = self.local_network.run_policy_and_value(sess, self.state)
 			
 			action = choose_action(mean,variance) # Calculate update
 			
@@ -104,7 +104,7 @@ class A3CTrainingthread(object):
 				
 		R = 0.0
 		if not terminal_end:
-			R = self.local_network.run_value(sess, self.state, self.snf, self.state_ops)
+			R = self.local_network.run_value(sess, self.state)
 
 		# Order from the final time point to the first
 		actions.reverse()
