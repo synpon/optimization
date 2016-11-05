@@ -14,7 +14,7 @@ class A3CRNN(object):
 
 	def __init__(self, num_trainable_vars):
 		# Input
-		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads')
+		self.grads = tf.placeholder(tf.float32, [None,None,1], 'grads') # [step_size,m,1]
 		#n_dims = tf.shape(self.grads)[1] # Dimensionality of the optimizee
 
 		# The scope allows these variables to be excluded from being reinitialized during the comparison phase
@@ -111,7 +111,8 @@ class A3CRNN(object):
 		entropy = -0.5*(tf.log(2*3.14*self.variance) + 1)
 
 		# Calculate the log probability density for the normal distribution
-		log_pd = -tf.sqrt(2*3.14*self.variance) - (tf.square(a-self.mean)/(2*self.variance))
+		# http://www.cs.princeton.edu/courses/archive/spr08/cos424/scribe_notes/0214.pdf
+		log_pd = -0.5*tf.log(2*3.14*self.variance) - (tf.square(a-self.mean)/(2*self.variance))
 		
 		# Negative so that a positive td and a high probability density for that action result in a low loss
 		policy_loss = -tf.reduce_mean(log_pd)*self.td
@@ -170,7 +171,7 @@ class A3CRNN(object):
 						self.initial_val_rnn_state: self.val_rnn_state_out}
 						
 		[mean, variance, self.rnn_state_out, value, self.val_rnn_state_out] = sess.run([self.mean, self.variance, self.rnn_state, self.v, self.val_rnn_state], feed_dict=feed_dict)
-		variance = np.maximum(variance,0.01)	
+		variance = np.maximum(variance,0.00001) 
 		value = np.squeeze(value)
 		return mean, variance, value
 	
