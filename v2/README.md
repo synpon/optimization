@@ -1,1 +1,0 @@
-# A3C with simulated data for learning gradient descent
