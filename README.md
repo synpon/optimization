@@ -3,7 +3,7 @@
 Research project to learn generalizable optimizers for neural networks from synthetic objective functions.    
 
 
-**Pre-requisites**
+**Prerequisites**
  - TensorFlow    
  - Numpy    
 
