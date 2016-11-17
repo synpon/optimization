@@ -8,7 +8,7 @@ Research project to learn generalizable optimizers for neural networks from synt
  - Numpy    
 
 
-Run main.py to train the optimizer and compare.py to test it against SGD and Adam.    
+Run 'main.py -s' to train and save the optimizer and compare.py to test it against SGD and Adam.    
 
 So far the best results have been obtained by running supervised learning (as opposed to reinforcement learning) with an additional penalty for oscillation. Using an asymmetric loss function that heavily penalises increases in the loss function has a similar effect. 
 
